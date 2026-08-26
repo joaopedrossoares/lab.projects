@@ -17,7 +17,7 @@ O ambiente foi desenhado para isolar aplicações e experimentos sem conflitos d
 ## 📁 Estrutura de Diretórios
 
 ```text
-labprojects/
+lab.projects/
 ├── docker-compose.yml            # Orquestrador central de todos os serviços
 ├── config-homepage/              # Configurações e widgets do dashboard
 │   ├── docker.yaml
@@ -28,8 +28,8 @@ labprojects/
 │   └── harmonic-cicle/           # Estudo visual de ciclo harmônico (Nginx)
 └── snippets/                     # Scripts isolados e PoCs (Testes rápidos, TS/JS/HTML)
 ```
-🚀 Como Subir o Ambiente
-Certifique-se de estar na raiz do repositório (labprojects).
+## 🚀 Como Subir o Ambiente
+Certifique-se de estar na raiz do repositório (lab.projects).
 
 Suba todos os containers em segundo plano (construindo imagens locais se necessário):
 
