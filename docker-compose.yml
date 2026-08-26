@@ -1,0 +1,86 @@
+networks:
+  lab-net:
+    name: lab-net
+
+services:
+  # -----------------------------------------------------------
+  # 1. O ROTEADOR (Traefik)
+  # Responsável por interceptar chamadas e direcionar para o app certo
+  # -----------------------------------------------------------
+  traefik:
+    image: traefik:v3.0
+    command:
+      - "--api.insecure=true" # Habilita o painel do Traefik
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false" # Segurança: ignora containers sem a label traefik.enable=true
+      - "--entryPoints.web.address=:80"
+    ports:
+      - "80:80"       # Porta padrão HTTP
+      - "8080:8080"   # Painel de controle do Traefik (localhost:8080)
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - lab-net
+
+  # -----------------------------------------------------------
+  # 2. O HUB VISUAL (Homepage)
+  # Lê o docker.sock e monta seu "Okta" automaticamente
+  # -----------------------------------------------------------
+  homepage:
+      image: ghcr.io/gethomepage/homepage:latest
+      ports:
+        - "3000:3000" # Expõe o painel diretamente na máquina física
+      volumes:
+        - "/var/run/docker.sock:/var/run/docker.sock:ro"
+        - "./config-homepage:/app/config"
+      networks:
+        - lab-net
+
+  harmonic-cicle:
+      image: nginx:alpine
+      volumes:
+        - ./apps/harmonic-cicle:/usr/share/nginx/html:ro
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.harmonic.rule=Host(`harmonic.traefik.me`)"
+        - "traefik.http.services.harmonic.loadbalancer.server.port=80"
+        - "homepage.group=Música"
+        - "homepage.name=Ciclo Harmônico"
+        - "homepage.icon=mdi-guitar-acoustic"
+        - "homepage.href=http://harmonic.traefik.me"
+      networks:
+        - lab-net
+
+  chord-finder:
+      build: ./apps/chord-finder 
+      container_name: chord-finder
+      restart: unless-stopped
+      volumes:
+        # Persiste os arquivos no host apontando para dentro de apps/chord-finder
+        - ./apps/chord-finder/cifras_local:/app/cifras_local
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.chord.rule=Host(`chords.traefik.me`)"
+        - "traefik.http.services.chord.loadbalancer.server.port=3000"
+        - "homepage.group=Música"
+        - "homepage.name=Chord Finder"
+        - "homepage.icon=mdi-music-circle"
+        - "homepage.href=http://chords.traefik.me"
+      networks:
+        - lab-net
+
+  fatura-casal:
+      image: nginx:alpine
+      volumes:
+        # Mapeia a pasta de apps para o Nginx servir a aplicação de faturas
+        - ./apps/fatura-casal-csv-app:/usr/share/nginx/html:ro
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.fatura.rule=Host(`fatura.traefik.me`)"
+        - "traefik.http.services.fatura.loadbalancer.server.port=80"
+        - "homepage.group=Finanças"
+        - "homepage.name=Faturas Casal"
+        - "homepage.icon=mdi-currency-usd"
+        - "homepage.href=http://fatura.traefik.me"
+      networks:
+        - lab-net

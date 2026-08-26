@@ -1,0 +1,33 @@
+[2026-08-26T16:06:12.574Z] info: kubernetes.yaml was copied to the config folder
+[2026-08-26T16:06:21.836Z] info: docker.yaml was copied to the config folder
+[2026-08-26T16:06:21.840Z] info: services.yaml was copied to the config folder
+[2026-08-26T16:06:21.844Z] info: bookmarks.yaml was copied to the config folder
+[2026-08-26T16:06:21.849Z] info: proxmox.yaml was copied to the config folder
+[2026-08-26T16:06:21.863Z] info: widgets.yaml was copied to the config folder
+[2026-08-26T16:06:21.867Z] info: custom.css was copied to the config folder
+[2026-08-26T16:06:21.871Z] info: custom.js was copied to the config folder
+[2026-08-26T16:09:14.968Z] error: <configValidationHandler> Configuration validation errors [
+  {
+    reason: 'expected a single document in the stream, but found more',
+    mark: undefined,
+    name: 'YAMLException',
+    message: 'expected a single document in the stream, but found more',
+    config: 'docker.yaml'
+  }
+]
+[2026-08-26T16:09:14.983Z] error: Failed to discover services, please check docker.yaml for errors or remove example entries.
+[2026-08-26T16:09:14.983Z] error: YAMLException: expected a single document in the stream, but found more
+[2026-08-26T16:09:14.991Z] error: Failed to discover services, please check docker.yaml for errors or remove example entries.
+[2026-08-26T16:09:14.991Z] error: YAMLException: expected a single document in the stream, but found more
+[2026-08-26T16:09:15.060Z] error: <configValidationHandler> Configuration validation errors [
+  {
+    reason: 'expected a single document in the stream, but found more',
+    mark: undefined,
+    name: 'YAMLException',
+    message: 'expected a single document in the stream, but found more',
+    config: 'docker.yaml'
+  }
+]
+[2026-08-26T16:09:15.126Z] error: Failed to discover services, please check docker.yaml for errors or remove example entries.
+[2026-08-26T16:09:15.126Z] error: YAMLException: expected a single document in the stream, but found more
+[2026-08-26T17:56:49.822Z] error: ❌ Failed to initialize required config: /app/config/widgets.yaml

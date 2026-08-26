@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Divisor de Fatura</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero card">
+        <div>
+          <p class="eyebrow">Fatura de cartão</p>
+          <h1>Divisor de compras</h1>
+          <p class="hero-text">
+            Selecione o PDF da fatura, confira as compras e marque o que é
+            <strong>Individual</strong> ou <strong>Casal</strong>.
+          </p>
+        </div>
+
+        <label class="upload-box" for="pdfInput">
+          <span class="upload-icon">＋</span>
+          <span>
+            <strong>Selecionar PDF</strong>
+            <small>A fatura será lida e convertida internamente no navegador</small>
+          </span>
+          <input id="pdfInput" type="file" accept=".pdf,application/pdf" />
+        </label>
+      </section>
+
+      <section class="summary-grid">
+        <article class="result-card card">
+          <span class="label">Total marcado como Casal</span>
+          <strong id="coupleTotal">R$ 0,00</strong>
+          <small>Soma das compras compartilhadas</small>
+        </article>
+
+        <article class="result-card highlight card">
+          <span class="label">Cada um deve pagar</span>
+          <strong id="eachPays">R$ 0,00</strong>
+          <small>Valor do casal dividido por 2</small>
+        </article>
+
+        <article class="result-card card">
+          <span class="label">Compras encontradas</span>
+          <strong id="itemsCount">0</strong>
+          <small id="fileName">Aguardando PDF</small>
+        </article>
+      </section>
+
+      <section class="toolbar card" id="toolbar" hidden>
+        <input id="searchInput" type="search" placeholder="Buscar por estabelecimento..." />
+        <div class="toolbar-actions">
+          <button id="markAllCouple" class="secondary-button" type="button">Tudo Casal</button>
+          <button id="markAllIndividual" class="secondary-button" type="button">Tudo Individual</button>
+        </div>
+      </section>
+
+      <section id="message" class="message card">
+        Selecione o PDF da fatura para começar.
+      </section>
+
+      <section id="transactionsList" class="transactions-list" aria-live="polite"></section>
+    </main>
+
+    <template id="transactionTemplate">
+      <article class="transaction-card card">
+        <div class="transaction-main">
+          <span class="date"></span>
+          <h2></h2>
+          <p class="category"></p>
+        </div>
+
+        <div class="transaction-side">
+          <strong class="amount"></strong>
+          <div class="toggle-group" role="group" aria-label="Classificação da compra">
+            <button type="button" data-kind="individual">Individual</button>
+            <button type="button" data-kind="casal">Casal</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

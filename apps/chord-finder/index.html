@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cifra Downloader Offline-Ready</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            margin: 0; 
+            background-color: #1e1e1e;
+            color: #ececec;
+        }
+        header { 
+            padding: 1.5rem; 
+            background: #2d2d2d; 
+            border-bottom: 1px solid #444; 
+            display: flex; 
+            align-items: center;
+            gap: 15px; 
+        }
+        header h1 { margin: 0; font-size: 1.2rem; color: #f9a826; width: 250px; }
+        input { 
+            padding: 0.6rem; 
+            font-size: 1rem; 
+            flex: 1; 
+            max-width: 400px; 
+            border: 1px solid #555;
+            background: #3d3d3d;
+            color: white;
+            border-radius: 4px;
+        }
+        button { 
+            padding: 0.6rem 1.2rem; 
+            font-size: 1rem; 
+            cursor: pointer; 
+            background-color: #f9a826;
+            color: #1e1e1e;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover { opacity: 0.8; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { 
+            width: 340px; 
+            overflow-y: auto; 
+            border-right: 1px solid #444; 
+            background: #252525; 
+        }
+        .sidebar ul { list-style: none; padding: 0; margin: 0; }
+        .sidebar li { 
+            padding: 12px 15px; 
+            border-bottom: 1px solid #333; 
+            cursor: pointer; 
+            font-size: 0.95rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar li:hover { background: #3d3d3d; color: #f9a826; }
+        .main-content { flex: 1; display: flex; flex-direction: column; background: #fff;}
+        iframe { flex: 1; border: none; width: 100%; height: 100%; }
+        .status { padding: 1.5rem; font-style: italic; color: #aaa; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Cifra Offline Storage</h1>
+        <input type="text" id="artistInput" value="legiao-urbana" placeholder="Ex: legiao-urbana">
+        <button onclick="fetchSongs()">Carregar / Sincronizar</button>
+    </header>
+
+    <div class="container">
+        <div class="sidebar">
+            <ul id="songList">
+                <div class="status">Digite o artista e clique em Carregar.</div>
+            </ul>
+        </div>
+        <div class="main-content">
+            <iframe id="cifraFrame" srcdoc="<p style='padding:2rem; font-family:sans-serif; color:#333;'>A cifra selecionada será lida do seu disco rígido e aparecerá aqui.</p>"></iframe>
+        </div>
+    </div>
+
+    <script>
+        async function fetchSongs() {
+            const artist = document.getElementById('artistInput').value.trim().toLowerCase();
+            if (!artist) return;
+
+            const songList = document.getElementById('songList');
+            songList.innerHTML = '<div class="status">Buscando lista (Online ou Local)...</div>';
+
+            try {
+                const response = await fetch(`/api/artist/${artist}`);
+                const songs = await response.json();
+
+                songList.innerHTML = '';
+                if (songs.error || songs.length === 0) {
+                    songList.innerHTML = `<div class="status" style="color:#ff6b6b;">${songs.error || 'Nenhuma música encontrada.'}</div>`;
+                    return;
+                }
+
+                songs.forEach(song => {
+                    const li = document.createElement('li');
+                    li.textContent = song.title;
+                    li.onclick = () => loadCifra(artist, song.slug, song.url);
+                    songList.appendChild(li);
+                });
+            } catch (error) {
+                songList.innerHTML = '<div class="status" style="color:#ff6b6b;">Erro ao conectar com o servidor local.</div>';
+            }
+        }
+
+        async function loadCifra(artist, slug, url) {
+            const iframe = document.getElementById('cifraFrame');
+            iframe.srcdoc = '<div style="display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; color:#666;"><h3>Carregando arquivo local...</h3></div>';
+
+            try {
+                const response = await fetch(`/api/cifra?artist=${artist}&slug=${slug}&url=${encodeURIComponent(url)}`);
+                const html = await response.text();
+                iframe.srcdoc = html;
+            } catch (error) {
+                iframe.srcdoc = '<p style="padding:2rem; font-family:sans-serif; color:red;">Erro ao abrir a cifra selecionada.</p>';
+            }
+        }
+    </script>
+</body>
+</html>
