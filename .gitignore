@@ -1,0 +1,28 @@
+# Dependências de ecossistemas
+node_modules/
+.pnp
+.pnp.js
+venv/
+__pycache__/
+*.pyc
+
+# Arquivos de dados, faturas e planilhas confidenciais
+*.pdf
+*.csv
+*.xlsx
+compras.debug.txt
+
+# Arquivos de sistema e IDEs
+.DS_Store
+.vscode/
+.idea/
+
+# Builds e temporários
+dist/
+build/
+.next/
+out/
+
+/apps/lauricas
+*.sh
+/apps/chord-finder/cifras_local/*

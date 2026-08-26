@@ -1,0 +1,13 @@
+{
+  "name": "fatura-casal-csv-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "converter": "node scripts/fatura-pdf-para-csv.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38"
+  }
+}
