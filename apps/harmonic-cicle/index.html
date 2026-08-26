@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ciclo Harmônico Interativo</title>
+<title>Ciclo Harmônico Interativo - Tétrades</title>
 <style>
   :root {
     --bg-color: #121214;
@@ -40,6 +40,7 @@
     gap: 15px;
     justify-content: center;
     align-items: center;
+    flex-wrap: wrap;
   }
 
   select {
@@ -75,11 +76,17 @@
     max-width: 600px;
     aspect-ratio: 1 / 1;
     filter: drop-shadow(0 15px 25px rgba(0,0,0,0.5));
+    margin-top: 1rem;
   }
 
   svg {
     width: 100%;
     height: 100%;
+  }
+
+  #rings {
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: 300px 300px;
   }
 
   .slice {
@@ -95,22 +102,21 @@
   }
 
   .chord-text {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     fill: #202024;
     pointer-events: none;
     text-anchor: middle;
     dominant-baseline: middle;
+    transition: font-size 0.2s;
   }
 
   #mask-group {
-    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-    transform-origin: 300px 300px;
     pointer-events: none;
   }
 
   .degree-text {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 800;
     fill: #ff0000;
     pointer-events: none;
@@ -130,6 +136,13 @@
       <option value="fifths">Ciclo de Quintas</option>
       <option value="fourths">Ciclo de Quartas</option>
     </select>
+    
+    <!-- Novo Controle de Complexidade (Tríades / Tétrades) -->
+    <select id="complexity-type">
+      <option value="triads">Tríades (3 notas)</option>
+      <option value="tetrads">Tétrades (4 notas)</option>
+    </select>
+
     <div id="current-key">Tom: C Maior</div>
   </div>
 </div>
@@ -151,6 +164,7 @@
     </defs>
 
     <circle cx="300" cy="300" r="285" fill="#f8f9fa" />
+    
     <g id="rings"></g>
 
     <g id="mask-group">
@@ -168,20 +182,18 @@
 <script>
   const svgNS = "http://www.w3.org/2000/svg";
   const ringsGroup = document.getElementById('rings');
-  const maskGroup = document.getElementById('mask-group');
   const degreesGroup = document.getElementById('degrees-group');
   const windowHole = document.getElementById('window-hole');
   const currentKeyDisplay = document.getElementById('current-key');
   const cycleTypeSelect = document.getElementById('cycle-type');
+  const complexityTypeSelect = document.getElementById('complexity-type');
 
-  // Arrays de Quintas
   const chordsFifths = {
     majors: ["C", "G", "D", "A", "E", "B", "Gb", "Db", "Ab", "Eb", "Bb", "F"],
     minors: ["Am", "Em", "Bm", "F#m", "C#m", "G#m", "Ebm", "Bbm", "Fm", "Cm", "Gm", "Dm"],
     dims:   ["B°", "F#°", "C#°", "G#°", "D#°", "A#°", "F°", "C°", "G°", "D°", "A°", "E°"]
   };
 
-  // Arrays de Quartas (Inverso)
   const chordsFourths = {
     majors: ["C", "F", "Bb", "Eb", "Ab", "Db", "Gb", "B", "E", "A", "D", "G"],
     minors: ["Am", "Dm", "Gm", "Cm", "Fm", "Bbm", "Ebm", "G#m", "C#m", "F#m", "Bm", "Em"],
@@ -195,6 +207,7 @@
   const R_CENTER = 60;
 
   let currentAngle = 0;
+  let currentIndex = 0; // Controla qual índice (0 a 11) é o Grau I no momento
   let activeChords = chordsFifths;
 
   function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
@@ -245,7 +258,8 @@
     windowHole.setAttribute('d', path);
   }
 
-  function drawRing(chords, innerRadius, outerRadius) {
+  // A função agora aceita uma classe para podermos rastrear os textos via querySelector
+  function drawRing(chords, innerRadius, outerRadius, ringClass) {
     const angleStep = 360 / 12;
     
     chords.forEach((chord, i) => {
@@ -264,8 +278,13 @@
         if (diff < -180) diff += 360;
         
         currentAngle += diff;
-        maskGroup.style.transform = `rotate(${currentAngle}deg)`;
+        currentIndex = i; // Atualiza quem é a Tônica atual
+        
+        ringsGroup.style.transform = `rotate(${-currentAngle}deg)`;
         currentKeyDisplay.textContent = `Tom: ${activeChords.majors[i]} Maior`;
+        
+        // Toda vez que a roda gira, precisamos recalcular quem recebe o 7 vs 7M
+        updateExtensions();
       });
 
       const midAngle = i * angleStep;
@@ -275,7 +294,7 @@
       const text = document.createElementNS(svgNS, "text");
       text.setAttribute("x", textPos.x);
       text.setAttribute("y", textPos.y);
-      text.setAttribute("class", "chord-text");
+      text.setAttribute("class", `chord-text ${ringClass}`);
       text.setAttribute("transform", `rotate(${midAngle}, ${textPos.x}, ${textPos.y})`);
       text.textContent = chord;
 
@@ -284,14 +303,45 @@
     });
   }
 
+  // Função central que processa a lógica de Extensões via DOM Manipulation
+  function updateExtensions() {
+    const isTetrad = complexityTypeSelect.value === 'tetrads';
+    const cycleType = cycleTypeSelect.value;
+
+    // Atualiza anel Maior (Ex: C -> C7M, G -> G7)
+    document.querySelectorAll('.outer-ring-text').forEach((el, i) => {
+      let base = activeChords.majors[i];
+      let suffix = "";
+      if (isTetrad) {
+        // Encontra onde está o grau V baseado na direção do ciclo
+        let vIndex = cycleType === 'fourths' ? (currentIndex - 1 + 12) % 12 : (currentIndex + 1) % 12;
+        suffix = (i === vIndex) ? "7" : "7M"; 
+      }
+      el.textContent = base + suffix;
+    });
+
+    // Atualiza anel Menor (Ex: Am -> Am7)
+    document.querySelectorAll('.middle-ring-text').forEach((el, i) => {
+      let base = activeChords.minors[i];
+      el.textContent = isTetrad ? base.replace('m', 'm7') : base;
+    });
+
+    // Atualiza anel Diminuto (Ex: B° -> Bm7(b5))
+    document.querySelectorAll('.inner-ring-text').forEach((el, i) => {
+      let base = activeChords.dims[i].replace('°', ''); // Tira a bolinha para montar a cifra
+      el.textContent = isTetrad ? base + "m7(b5)" : base + "°";
+    });
+  }
+
+  // Desenha os numerais da máscara e também aplica as sétimas neles
   function drawDegrees(type) {
-    degreesGroup.innerHTML = ''; // Limpa os graus antigos
+    degreesGroup.innerHTML = '';
+    const isTetrad = complexityTypeSelect.value === 'tetrads';
     
     const outerMid = 20 + R_MIDDLE + (R_OUTER - R_MIDDLE) / 2;
     const middleMid = 20 + R_INNER + (R_MIDDLE - R_INNER) / 2;
     const innerMid = 20 + R_CENTER + (R_INNER - R_CENTER) / 2;
 
-    // Se mudarmos para quartas, a Subdominante (IV) vai para a direita e a Dominante (V) para a esquerda
     const leftLabelOuter = type === 'fourths' ? "V" : "IV";
     const rightLabelOuter = type === 'fourths' ? "IV" : "V";
     const leftLabelMiddle = type === 'fourths' ? "iii" : "ii";
@@ -308,37 +358,54 @@
     ];
 
     degreeData.forEach(deg => {
+      let textLabel = deg.label;
+      
+      // Se for Tétrade, atualiza a notação do numeral romano
+      if (isTetrad) {
+        if (textLabel === "I" || textLabel === "IV") textLabel += "7M";
+        else if (textLabel === "V") textLabel += "7";
+        else if (textLabel === "vii°") textLabel = "vii m7(b5)";
+        else textLabel += "7"; // Para ii, iii, vi
+      }
+
       const pos = polarToCartesian(cx, cy, deg.radius, deg.angle);
       const text = document.createElementNS(svgNS, "text");
       text.setAttribute("x", pos.x);
       text.setAttribute("y", pos.y);
       text.setAttribute("class", "degree-text");
       text.setAttribute("transform", `rotate(${deg.angle}, ${pos.x}, ${pos.y})`);
-      text.textContent = deg.label;
+      text.textContent = textLabel;
       degreesGroup.appendChild(text);
     });
   }
 
   function renderWheel(type) {
-    // Reseta a roda
     ringsGroup.innerHTML = '';
     activeChords = type === 'fourths' ? chordsFourths : chordsFifths;
     
-    // Reseta a rotação para Dó Maior (C) para evitar confusão visual durante a troca
     currentAngle = 0;
-    maskGroup.style.transform = `rotate(0deg)`;
+    currentIndex = 0; // Reinicia a contagem do grau I
+    ringsGroup.style.transform = `rotate(0deg)`;
     currentKeyDisplay.textContent = `Tom: ${activeChords.majors[0]} Maior`;
 
-    // Redesenha os acordes e os graus corretos
-    drawRing(activeChords.majors, R_MIDDLE, R_OUTER);
-    drawRing(activeChords.minors, R_INNER, R_MIDDLE);
-    drawRing(activeChords.dims, R_CENTER, R_INNER);
+    // Desenha os anéis passando a classe para identificarmos depois
+    drawRing(activeChords.majors, R_MIDDLE, R_OUTER, 'outer-ring-text');
+    drawRing(activeChords.minors, R_INNER, R_MIDDLE, 'middle-ring-text');
+    drawRing(activeChords.dims, R_CENTER, R_INNER, 'inner-ring-text');
+    
+    // Injeta as extensões (se o select já estiver em Tétrades)
+    updateExtensions();
     drawDegrees(type);
   }
 
-  // Listener do Select
+  // Listeners
   cycleTypeSelect.addEventListener('change', (e) => {
     renderWheel(e.target.value);
+  });
+
+  complexityTypeSelect.addEventListener('change', () => {
+    updateExtensions(); // Atualiza os acordes
+    drawDegrees(cycleTypeSelect.value); // Atualiza os algarismos da máscara
   });
 
   // Inicialização
