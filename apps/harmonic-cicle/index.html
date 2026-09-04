@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ciclo Harmônico Interativo - Tétrades</title>
+<title>Ciclo Harmônico Interativo</title>
 <style>
   :root {
     --bg-color: #121214;
@@ -70,6 +70,51 @@
     display: inline-block;
   }
 
+  /* Legenda de Sensações no Canto Superior Direito */
+  .legend {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: #18181c;
+    border: 1px solid #333;
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px rgba(0,0,0,0.5);
+    z-index: 10;
+  }
+
+  .legend h3 {
+    font-size: 14px;
+    margin: 0 0 12px 0;
+    color: #00d8ff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .legend ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .legend li strong {
+    color: #fff;
+  }
+
+  .color-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+
+  .dot-repouso { background-color: #4caf50; }
+  .dot-movimento { background-color: #ff9800; }
+  .dot-tensao { background-color: #f44336; }
+
   #wheel-container {
     position: relative;
     width: 90vw;
@@ -116,7 +161,7 @@
   }
 
   .degree-text {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 800;
     fill: #ff0000;
     pointer-events: none;
@@ -125,9 +170,27 @@
     filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.9));
   }
 
+  /* Ajuste responsivo para telas pequenas */
+  @media (max-width: 768px) {
+    .legend {
+      position: static;
+      margin-bottom: 20px;
+      width: 80vw;
+      text-align: center;
+    }
+  }
 </style>
 </head>
 <body>
+
+<div class="legend">
+  <h3>Funções Harmônicas</h3>
+  <ul>
+    <li><span class="color-dot dot-repouso"></span> <strong>Repouso (Tônica):</strong> I, iii, vi</li>
+    <li><span class="color-dot dot-movimento"></span> <strong>Movimento (Subdom.):</strong> ii, IV</li>
+    <li><span class="color-dot dot-tensao"></span> <strong>Tensão (Dominante):</strong> V, vii°</li>
+  </ul>
+</div>
 
 <div class="header">
   <h1>Campo Harmônico Isolado</h1>
@@ -137,7 +200,6 @@
       <option value="fourths">Ciclo de Quartas</option>
     </select>
     
-    <!-- Novo Controle de Complexidade (Tríades / Tétrades) -->
     <select id="complexity-type">
       <option value="triads">Tríades (3 notas)</option>
       <option value="tetrads">Tétrades (4 notas)</option>
@@ -207,7 +269,7 @@
   const R_CENTER = 60;
 
   let currentAngle = 0;
-  let currentIndex = 0; // Controla qual índice (0 a 11) é o Grau I no momento
+  let currentIndex = 0;
   let activeChords = chordsFifths;
 
   function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
@@ -237,28 +299,27 @@
   function generateMaskHole() {
     const p1 = polarToCartesian(cx, cy, R_OUTER, -45);
     const p2 = polarToCartesian(cx, cy, R_OUTER, 45);
-    const p3 = polarToCartesian(cx, cy, R_MIDDLE, 45);
-    const p4 = polarToCartesian(cx, cy, R_MIDDLE, 15);
-    const p5 = polarToCartesian(cx, cy, R_INNER, 15);
-    const p6 = polarToCartesian(cx, cy, R_INNER, -15);
-    const p7 = polarToCartesian(cx, cy, R_MIDDLE, -15);
-    const p8 = polarToCartesian(cx, cy, R_MIDDLE, -45);
+    const p3 = polarToCartesian(cx, cy, R_INNER, 45);   
+    const p4 = polarToCartesian(cx, cy, R_INNER, 15);   
+    const p5 = polarToCartesian(cx, cy, R_CENTER, 15);  
+    const p6 = polarToCartesian(cx, cy, R_CENTER, -15); 
+    const p7 = polarToCartesian(cx, cy, R_INNER, -15);  
+    const p8 = polarToCartesian(cx, cy, R_INNER, -45);  
 
     const path = `
       M ${p1.x} ${p1.y}
       A ${R_OUTER} ${R_OUTER} 0 0 1 ${p2.x} ${p2.y}
       L ${p3.x} ${p3.y}
-      A ${R_MIDDLE} ${R_MIDDLE} 0 0 0 ${p4.x} ${p4.y}
+      A ${R_INNER} ${R_INNER} 0 0 0 ${p4.x} ${p4.y}
       L ${p5.x} ${p5.y}
-      A ${R_INNER} ${R_INNER} 0 0 0 ${p6.x} ${p6.y}
+      A ${R_CENTER} ${R_CENTER} 0 0 0 ${p6.x} ${p6.y}
       L ${p7.x} ${p7.y}
-      A ${R_MIDDLE} ${R_MIDDLE} 0 0 0 ${p8.x} ${p8.y}
+      A ${R_INNER} ${R_INNER} 0 0 0 ${p8.x} ${p8.y}
       Z
     `;
     windowHole.setAttribute('d', path);
   }
 
-  // A função agora aceita uma classe para podermos rastrear os textos via querySelector
   function drawRing(chords, innerRadius, outerRadius, ringClass) {
     const angleStep = 360 / 12;
     
@@ -278,12 +339,11 @@
         if (diff < -180) diff += 360;
         
         currentAngle += diff;
-        currentIndex = i; // Atualiza quem é a Tônica atual
+        currentIndex = i; 
         
         ringsGroup.style.transform = `rotate(${-currentAngle}deg)`;
         currentKeyDisplay.textContent = `Tom: ${activeChords.majors[i]} Maior`;
         
-        // Toda vez que a roda gira, precisamos recalcular quem recebe o 7 vs 7M
         updateExtensions();
       });
 
@@ -303,37 +363,31 @@
     });
   }
 
-  // Função central que processa a lógica de Extensões via DOM Manipulation
   function updateExtensions() {
     const isTetrad = complexityTypeSelect.value === 'tetrads';
     const cycleType = cycleTypeSelect.value;
 
-    // Atualiza anel Maior (Ex: C -> C7M, G -> G7)
     document.querySelectorAll('.outer-ring-text').forEach((el, i) => {
       let base = activeChords.majors[i];
       let suffix = "";
       if (isTetrad) {
-        // Encontra onde está o grau V baseado na direção do ciclo
         let vIndex = cycleType === 'fourths' ? (currentIndex - 1 + 12) % 12 : (currentIndex + 1) % 12;
         suffix = (i === vIndex) ? "7" : "7M"; 
       }
       el.textContent = base + suffix;
     });
 
-    // Atualiza anel Menor (Ex: Am -> Am7)
     document.querySelectorAll('.middle-ring-text').forEach((el, i) => {
       let base = activeChords.minors[i];
       el.textContent = isTetrad ? base.replace('m', 'm7') : base;
     });
 
-    // Atualiza anel Diminuto (Ex: B° -> Bm7(b5))
     document.querySelectorAll('.inner-ring-text').forEach((el, i) => {
-      let base = activeChords.dims[i].replace('°', ''); // Tira a bolinha para montar a cifra
+      let base = activeChords.dims[i].replace('°', ''); 
       el.textContent = isTetrad ? base + "m7(b5)" : base + "°";
     });
   }
 
-  // Desenha os numerais da máscara e também aplica as sétimas neles
   function drawDegrees(type) {
     degreesGroup.innerHTML = '';
     const isTetrad = complexityTypeSelect.value === 'tetrads';
@@ -360,12 +414,11 @@
     degreeData.forEach(deg => {
       let textLabel = deg.label;
       
-      // Se for Tétrade, atualiza a notação do numeral romano
       if (isTetrad) {
         if (textLabel === "I" || textLabel === "IV") textLabel += "7M";
         else if (textLabel === "V") textLabel += "7";
         else if (textLabel === "vii°") textLabel = "vii m7(b5)";
-        else textLabel += "7"; // Para ii, iii, vi
+        else textLabel += "7"; 
       }
 
       const pos = polarToCartesian(cx, cy, deg.radius, deg.angle);
@@ -384,31 +437,27 @@
     activeChords = type === 'fourths' ? chordsFourths : chordsFifths;
     
     currentAngle = 0;
-    currentIndex = 0; // Reinicia a contagem do grau I
+    currentIndex = 0;
     ringsGroup.style.transform = `rotate(0deg)`;
     currentKeyDisplay.textContent = `Tom: ${activeChords.majors[0]} Maior`;
 
-    // Desenha os anéis passando a classe para identificarmos depois
     drawRing(activeChords.majors, R_MIDDLE, R_OUTER, 'outer-ring-text');
     drawRing(activeChords.minors, R_INNER, R_MIDDLE, 'middle-ring-text');
     drawRing(activeChords.dims, R_CENTER, R_INNER, 'inner-ring-text');
     
-    // Injeta as extensões (se o select já estiver em Tétrades)
     updateExtensions();
     drawDegrees(type);
   }
 
-  // Listeners
   cycleTypeSelect.addEventListener('change', (e) => {
     renderWheel(e.target.value);
   });
 
   complexityTypeSelect.addEventListener('change', () => {
-    updateExtensions(); // Atualiza os acordes
-    drawDegrees(cycleTypeSelect.value); // Atualiza os algarismos da máscara
+    updateExtensions();
+    drawDegrees(cycleTypeSelect.value);
   });
 
-  // Inicialização
   generateMaskHole();
   renderWheel('fifths');
 
