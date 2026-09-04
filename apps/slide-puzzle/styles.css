@@ -1,0 +1,142 @@
+:root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --tile-bg: #3b82f6;
+    --tile-hover: #2563eb;
+    --text-color: #f8fafc;
+    --accent-color: #10b981;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.game-container {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    max-width: 450px;
+    width: 100%;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: #93c5fd;
+}
+
+.controls-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.5);
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-box {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.stat-box strong {
+    font-size: 1.1rem;
+    color: var(--text-color);
+}
+
+.control-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+select, button {
+    background: #334155;
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.3rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+button {
+    background-color: var(--tile-bg);
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: var(--tile-hover);
+}
+
+.puzzle-board {
+    display: grid;
+    gap: 6px;
+    background: #0f172a;
+    padding: 10px;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    aspect-ratio: 1;
+}
+
+.tile {
+    background-color: var(--tile-bg);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s ease, background-color 0.2s;
+}
+
+.tile:hover {
+    background-color: var(--tile-hover);
+}
+
+.tile.empty {
+    background-color: transparent;
+    cursor: default;
+}
+
+.instructions {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    line-height: 1.4;
+}
+
+.win-message {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background-color: var(--accent-color);
+    color: white;
+    font-weight: bold;
+    border-radius: 0.4rem;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.hidden {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

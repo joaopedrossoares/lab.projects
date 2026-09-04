@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slide Math Puzzle</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>Slide Math Puzzle</h1>
+        
+        <div class="controls-panel">
+            <div class="stat-box">
+                <span>Tempo</span>
+                <strong id="timer">00:00</strong>
+            </div>
+            <div class="stat-box">
+                <span>Movimentos</span>
+                <strong id="moves">0</strong>
+            </div>
+            <div class="control-group">
+                <label for="grid-size">Tamanho:</label>
+                <select id="grid-size">
+                    <option value="3">3 x 3 (8-Puzzle)</option>
+                    <option value="4" selected>4 x 4 (15-Puzzle)</option>
+                    <option value="5">5 x 5 (24-Puzzle)</option>
+                </select>
+                <button id="btn-restart">Reiniciar</button>
+            </div>
+        </div>
+
+        <div id="puzzle-board" class="puzzle-board"></div>
+
+        <div class="instructions">
+            <p>💡 <strong>Como jogar:</strong> Clique nas peças adjacentes ao espaço vazio para movê-las ou use as <strong>Setas do Teclado</strong> / <strong>W, A, S, D</strong>.</p>
+        </div>
+
+        <div id="win-message" class="win-message hidden">
+            🎉 Parabéns! Você resolveu o puzzle!
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
