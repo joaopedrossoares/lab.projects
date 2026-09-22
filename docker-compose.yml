@@ -118,3 +118,42 @@ services:
       - "homepage.description=Jogo de lógica numérico com suporte a teclado e redimensionamento"
     networks:
       - lab-net
+  ai-slide-generator:
+      build: ./apps/ai-slide-generator
+      container_name: ai-slide-generator
+      restart: unless-stopped
+      environment:
+        - GEMINI_API_KEY=sua_chave_secreta_aqui_gerada_no_google_ai_studio
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.aislides.rule=Host(`slides.traefik.me`)"
+        - "traefik.http.services.aislides.loadbalancer.server.port=3000"
+        - "homepage.group=Ferramentas & Utilidades"
+        - "homepage.name=AI Slide Builder"
+        - "homepage.icon=mdi-presentation"
+        - "homepage.href=http://slides.traefik.me"
+        - "homepage.description=Gerador de slides objetivos com IA e Marp"
+      networks:
+        - lab-net
+
+
+  afinador:
+      image: nginx:alpine
+      # ⚠️ Vamos expor a porta 8081 direto na máquina para contornar o bloqueio de microfone HTTP
+      ports:
+        - "8081:80"
+      volumes:
+        - ./apps/afinador:/usr/share/nginx/html:ro
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.afinador.rule=Host(`afinador.traefik.me`)"
+        - "traefik.http.services.afinador.loadbalancer.server.port=80"
+        
+        - "homepage.group=Música"
+        - "homepage.name=Afinador"
+        - "homepage.icon=mdi-music-clef-treble"
+        # Apontamos o card visual para localhost para o navegador confiar no microfone
+        - "homepage.href=http://localhost:8081"
+        - "homepage.description=Afinador de instrumentos usando o microfone"
+      networks:
+        - lab-net
