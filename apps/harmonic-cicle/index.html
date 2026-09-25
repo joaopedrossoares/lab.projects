@@ -1,37 +1,466 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Afinador Online</title>
-    <style>
-        body { 
-            background: #0f172a; color: #f8fafc; font-family: monospace; 
-            display: flex; flex-direction: column; align-items: center; 
-            justify-content: center; height: 100vh; margin: 0; 
-        }
-        .container { text-align: center; background: #1e293b; padding: 30px; border-radius: 12px; }
-        #note { font-size: 6rem; font-weight: bold; color: #3b82f6; margin: 20px 0; }
-        #detune { font-size: 1.5rem; color: #94a3b8; }
-        .indicator { width: 100%; height: 10px; background: #334155; border-radius: 5px; margin-top: 15px; position: relative; }
-        .marker { width: 4px; height: 100%; background: #10b981; position: absolute; left: 50%; transform: translateX(-50%); }
-        .pointer { width: 10px; height: 10px; background: #ef4444; border-radius: 50%; position: absolute; top: 0; left: 50%; transform: translateX(-50%); transition: left 0.1s ease-out; }
-        button { background: #3b82f6; color: white; border: none; padding: 12px 24px; font-size: 1.1rem; cursor: pointer; border-radius: 6px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ciclo Harmônico Interativo</title>
+<style>
+  :root {
+    --bg-color: #121214;
+    --wheel-bg: #f8f9fa;
+    --text-color: #e1e1e6;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: var(--bg-color);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    margin: 0;
+    color: var(--text-color);
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin: 0 0 1rem 0;
+    letter-spacing: 1px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  select {
+    background: #18181c;
+    color: #e1e1e6;
+    border: 1px solid #333;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  select:focus, select:hover {
+    border-color: #00d8ff;
+  }
+
+  #current-key {
+    font-size: 1.1rem;
+    color: #00d8ff;
+    font-weight: bold;
+    background: rgba(0, 216, 255, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+
+  /* Legenda de Sensações no Canto Superior Direito */
+  .legend {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: #18181c;
+    border: 1px solid #333;
+    padding: 15px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px rgba(0,0,0,0.5);
+    z-index: 10;
+  }
+
+  .legend h3 {
+    font-size: 14px;
+    margin: 0 0 12px 0;
+    color: #00d8ff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .legend ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .legend li strong {
+    color: #fff;
+  }
+
+  .color-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+
+  .dot-repouso { background-color: #4caf50; }
+  .dot-movimento { background-color: #ff9800; }
+  .dot-tensao { background-color: #f44336; }
+
+  #wheel-container {
+    position: relative;
+    width: 90vw;
+    max-width: 600px;
+    aspect-ratio: 1 / 1;
+    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.5));
+    margin-top: 1rem;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  #rings {
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: 300px 300px;
+  }
+
+  .slice {
+    fill: var(--wheel-bg);
+    stroke: #d7d7d7;
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: fill 0.2s;
+  }
+
+  .slice:hover {
+    fill: #e9ecef;
+  }
+
+  .chord-text {
+    font-size: 15px;
+    font-weight: 600;
+    fill: #202024;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    transition: font-size 0.2s;
+  }
+
+  #mask-group {
+    pointer-events: none;
+  }
+
+  .degree-text {
+    font-size: 15px;
+    font-weight: 800;
+    fill: #ff0000;
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.9));
+  }
+
+  /* Ajuste responsivo para telas pequenas */
+  @media (max-width: 768px) {
+    .legend {
+      position: static;
+      margin-bottom: 20px;
+      width: 80vw;
+      text-align: center;
+    }
+  }
+</style>
 </head>
 <body>
-    <div class="container">
-        <h1>Afinador</h1>
-        <button id="start-btn">Ativar Microfone</button>
-        <div id="tuner-display" style="display: none;">
-            <div id="note">-</div>
-            <div id="detune">0 cents</div>
-            <div class="indicator">
-                <div class="marker"></div>
-                <div class="pointer" id="pointer"></div>
-            </div>
-        </div>
-    </div>
-    <script src="app.js"></script>
+
+<div class="legend">
+  <h3>Funções Harmônicas</h3>
+  <ul>
+    <li><span class="color-dot dot-repouso"></span> <strong>Repouso (Tônica):</strong> I, iii, vi</li>
+    <li><span class="color-dot dot-movimento"></span> <strong>Movimento (Subdom.):</strong> ii, IV</li>
+    <li><span class="color-dot dot-tensao"></span> <strong>Tensão (Dominante):</strong> V, vii°</li>
+  </ul>
+</div>
+
+<div class="header">
+  <h1>Campo Harmônico Isolado</h1>
+  <div class="controls">
+    <select id="cycle-type">
+      <option value="fifths">Ciclo de Quintas</option>
+      <option value="fourths">Ciclo de Quartas</option>
+    </select>
+    
+    <select id="complexity-type">
+      <option value="triads">Tríades (3 notas)</option>
+      <option value="tetrads">Tétrades (4 notas)</option>
+    </select>
+
+    <div id="current-key">Tom: C Maior</div>
+  </div>
+</div>
+
+<div id="wheel-container">
+  <svg viewBox="0 0 600 600" id="harmonic-wheel">
+    <defs>
+      <filter id="drop-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="6" stdDeviation="6" flood-opacity="0.6" />
+      </filter>
+      
+      <path id="window-hole" d="" />
+      
+      <mask id="acrylic-mask">
+        <circle cx="300" cy="300" r="300" fill="white" />
+        <use href="#window-hole" fill="black" />
+        <circle cx="300" cy="300" r="60" fill="black" />
+      </mask>
+    </defs>
+
+    <circle cx="300" cy="300" r="285" fill="#f8f9fa" />
+    
+    <g id="rings"></g>
+
+    <g id="mask-group">
+      <circle cx="300" cy="300" r="290" fill="rgba(24, 24, 28, 0.88)" mask="url(#acrylic-mask)" />
+      <use href="#window-hole" fill="none" stroke="#111" stroke-width="6" filter="url(#drop-shadow)" />
+      <use href="#window-hole" fill="none" stroke="#333" stroke-width="2" />
+      <circle cx="300" cy="300" r="60" fill="#18181c" filter="url(#drop-shadow)" />
+      <circle cx="300" cy="300" r="20" fill="#333" stroke="#111" stroke-width="2"/>
+      
+      <g id="degrees-group"></g>
+    </g>
+  </svg>
+</div>
+
+<script>
+  const svgNS = "http://www.w3.org/2000/svg";
+  const ringsGroup = document.getElementById('rings');
+  const degreesGroup = document.getElementById('degrees-group');
+  const windowHole = document.getElementById('window-hole');
+  const currentKeyDisplay = document.getElementById('current-key');
+  const cycleTypeSelect = document.getElementById('cycle-type');
+  const complexityTypeSelect = document.getElementById('complexity-type');
+
+  const chordsFifths = {
+    majors: ["C", "G", "D", "A", "E", "B", "Gb", "Db", "Ab", "Eb", "Bb", "F"],
+    minors: ["Am", "Em", "Bm", "F#m", "C#m", "G#m", "Ebm", "Bbm", "Fm", "Cm", "Gm", "Dm"],
+    dims:   ["B°", "F#°", "C#°", "G#°", "D#°", "A#°", "F°", "C°", "G°", "D°", "A°", "E°"]
+  };
+
+  const chordsFourths = {
+    majors: ["C", "F", "Bb", "Eb", "Ab", "Db", "Gb", "B", "E", "A", "D", "G"],
+    minors: ["Am", "Dm", "Gm", "Cm", "Fm", "Bbm", "Ebm", "G#m", "C#m", "F#m", "Bm", "Em"],
+    dims:   ["B°", "E°", "A°", "D°", "G°", "C°", "F°", "A#°", "D#°", "G#°", "C#°", "F#°"]
+  };
+
+  const cx = 300, cy = 300;
+  const R_OUTER = 285;
+  const R_MIDDLE = 210;
+  const R_INNER = 135;
+  const R_CENTER = 60;
+
+  let currentAngle = 0;
+  let currentIndex = 0;
+  let activeChords = chordsFifths;
+
+  function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+    return {
+      x: centerX + (radius * Math.cos(angleInRadians)),
+      y: centerY + (radius * Math.sin(angleInRadians))
+    };
+  }
+
+  function describeArc(x, y, innerRadius, outerRadius, startAngle, endAngle) {
+    const startOuter = polarToCartesian(x, y, outerRadius, endAngle);
+    const endOuter = polarToCartesian(x, y, outerRadius, startAngle);
+    const startInner = polarToCartesian(x, y, innerRadius, endAngle);
+    const endInner = polarToCartesian(x, y, innerRadius, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+
+    return [
+      "M", startOuter.x, startOuter.y,
+      "A", outerRadius, outerRadius, 0, largeArcFlag, 0, endOuter.x, endOuter.y,
+      "L", endInner.x, endInner.y,
+      "A", innerRadius, innerRadius, 0, largeArcFlag, 1, startInner.x, startInner.y,
+      "Z"
+    ].join(" ");
+  }
+
+  function generateMaskHole() {
+    const p1 = polarToCartesian(cx, cy, R_OUTER, -45);
+    const p2 = polarToCartesian(cx, cy, R_OUTER, 45);
+    const p3 = polarToCartesian(cx, cy, R_INNER, 45);   
+    const p4 = polarToCartesian(cx, cy, R_INNER, 15);   
+    const p5 = polarToCartesian(cx, cy, R_CENTER, 15);  
+    const p6 = polarToCartesian(cx, cy, R_CENTER, -15); 
+    const p7 = polarToCartesian(cx, cy, R_INNER, -15);  
+    const p8 = polarToCartesian(cx, cy, R_INNER, -45);  
+
+    const path = `
+      M ${p1.x} ${p1.y}
+      A ${R_OUTER} ${R_OUTER} 0 0 1 ${p2.x} ${p2.y}
+      L ${p3.x} ${p3.y}
+      A ${R_INNER} ${R_INNER} 0 0 0 ${p4.x} ${p4.y}
+      L ${p5.x} ${p5.y}
+      A ${R_CENTER} ${R_CENTER} 0 0 0 ${p6.x} ${p6.y}
+      L ${p7.x} ${p7.y}
+      A ${R_INNER} ${R_INNER} 0 0 0 ${p8.x} ${p8.y}
+      Z
+    `;
+    windowHole.setAttribute('d', path);
+  }
+
+  function drawRing(chords, innerRadius, outerRadius, ringClass) {
+    const angleStep = 360 / 12;
+    
+    chords.forEach((chord, i) => {
+      const startAngle = (i * angleStep) - 15;
+      const endAngle = (i * angleStep) + 15;
+      
+      const path = document.createElementNS(svgNS, "path");
+      path.setAttribute("d", describeArc(cx, cy, innerRadius, outerRadius, startAngle, endAngle));
+      path.setAttribute("class", "slice");
+      
+      path.addEventListener("click", () => {
+        const targetAngle = i * angleStep;
+        let diff = targetAngle - (currentAngle % 360);
+        
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        
+        currentAngle += diff;
+        currentIndex = i; 
+        
+        ringsGroup.style.transform = `rotate(${-currentAngle}deg)`;
+        currentKeyDisplay.textContent = `Tom: ${activeChords.majors[i]} Maior`;
+        
+        updateExtensions();
+      });
+
+      const midAngle = i * angleStep;
+      const textRadius = innerRadius + ((outerRadius - innerRadius) / 2);
+      const textPos = polarToCartesian(cx, cy, textRadius, midAngle);
+      
+      const text = document.createElementNS(svgNS, "text");
+      text.setAttribute("x", textPos.x);
+      text.setAttribute("y", textPos.y);
+      text.setAttribute("class", `chord-text ${ringClass}`);
+      text.setAttribute("transform", `rotate(${midAngle}, ${textPos.x}, ${textPos.y})`);
+      text.textContent = chord;
+
+      ringsGroup.appendChild(path);
+      ringsGroup.appendChild(text);
+    });
+  }
+
+  function updateExtensions() {
+    const isTetrad = complexityTypeSelect.value === 'tetrads';
+    const cycleType = cycleTypeSelect.value;
+
+    document.querySelectorAll('.outer-ring-text').forEach((el, i) => {
+      let base = activeChords.majors[i];
+      let suffix = "";
+      if (isTetrad) {
+        let vIndex = cycleType === 'fourths' ? (currentIndex - 1 + 12) % 12 : (currentIndex + 1) % 12;
+        suffix = (i === vIndex) ? "7" : "7M"; 
+      }
+      el.textContent = base + suffix;
+    });
+
+    document.querySelectorAll('.middle-ring-text').forEach((el, i) => {
+      let base = activeChords.minors[i];
+      el.textContent = isTetrad ? base.replace('m', 'm7') : base;
+    });
+
+    document.querySelectorAll('.inner-ring-text').forEach((el, i) => {
+      let base = activeChords.dims[i].replace('°', ''); 
+      el.textContent = isTetrad ? base + "m7(b5)" : base + "°";
+    });
+  }
+
+  function drawDegrees(type) {
+    degreesGroup.innerHTML = '';
+    const isTetrad = complexityTypeSelect.value === 'tetrads';
+    
+    const outerMid = 20 + R_MIDDLE + (R_OUTER - R_MIDDLE) / 2;
+    const middleMid = 20 + R_INNER + (R_MIDDLE - R_INNER) / 2;
+    const innerMid = 20 + R_CENTER + (R_INNER - R_CENTER) / 2;
+
+    const leftLabelOuter = type === 'fourths' ? "V" : "IV";
+    const rightLabelOuter = type === 'fourths' ? "IV" : "V";
+    const leftLabelMiddle = type === 'fourths' ? "iii" : "ii";
+    const rightLabelMiddle = type === 'fourths' ? "ii" : "iii";
+
+    const degreeData = [
+      { label: leftLabelOuter, radius: outerMid, angle: -30 },
+      { label: "I", radius: outerMid, angle: 0 },
+      { label: rightLabelOuter, radius: outerMid, angle: 30 },
+      { label: leftLabelMiddle, radius: middleMid, angle: -30 },
+      { label: "vi", radius: middleMid, angle: 0 },
+      { label: rightLabelMiddle, radius: middleMid, angle: 30 },
+      { label: "vii°", radius: innerMid, angle: 0 }
+    ];
+
+    degreeData.forEach(deg => {
+      let textLabel = deg.label;
+      
+      if (isTetrad) {
+        if (textLabel === "I" || textLabel === "IV") textLabel += "7M";
+        else if (textLabel === "V") textLabel += "7";
+        else if (textLabel === "vii°") textLabel = "vii m7(b5)";
+        else textLabel += "7"; 
+      }
+
+      const pos = polarToCartesian(cx, cy, deg.radius, deg.angle);
+      const text = document.createElementNS(svgNS, "text");
+      text.setAttribute("x", pos.x);
+      text.setAttribute("y", pos.y);
+      text.setAttribute("class", "degree-text");
+      text.setAttribute("transform", `rotate(${deg.angle}, ${pos.x}, ${pos.y})`);
+      text.textContent = textLabel;
+      degreesGroup.appendChild(text);
+    });
+  }
+
+  function renderWheel(type) {
+    ringsGroup.innerHTML = '';
+    activeChords = type === 'fourths' ? chordsFourths : chordsFifths;
+    
+    currentAngle = 0;
+    currentIndex = 0;
+    ringsGroup.style.transform = `rotate(0deg)`;
+    currentKeyDisplay.textContent = `Tom: ${activeChords.majors[0]} Maior`;
+
+    drawRing(activeChords.majors, R_MIDDLE, R_OUTER, 'outer-ring-text');
+    drawRing(activeChords.minors, R_INNER, R_MIDDLE, 'middle-ring-text');
+    drawRing(activeChords.dims, R_CENTER, R_INNER, 'inner-ring-text');
+    
+    updateExtensions();
+    drawDegrees(type);
+  }
+
+  cycleTypeSelect.addEventListener('change', (e) => {
+    renderWheel(e.target.value);
+  });
+
+  complexityTypeSelect.addEventListener('change', () => {
+    updateExtensions();
+    drawDegrees(cycleTypeSelect.value);
+  });
+
+  generateMaskHole();
+  renderWheel('fifths');
+
+</script>
 </body>
 </html>
