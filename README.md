@@ -23,9 +23,12 @@ lab.projects/
 │   ├── docker.yaml
 │   └── services.yaml
 ├── apps/                         # Aplicações completas com interface web
+│   ├── afinador/                 # Afinador de instrumentos via microfone (Nginx)
+│   ├── ai-slide-generator/       # Gerador de slides com IA (Gemini + Marp, Node.js)
 │   ├── chord-finder/             # App de busca de cifras (Node.js)
 │   ├── fatura-casal-csv-app/     # Leitor e extrator de faturas (Nginx)
-│   └── harmonic-cicle/           # Estudo visual de ciclo harmônico (Nginx)
+│   ├── harmonic-cicle/           # Estudo visual de ciclo harmônico (Nginx)
+│   └── slide-puzzle/             # Slide Math Puzzle, jogo de lógica numérico (Nginx)
 └── snippets/                     # Scripts isolados e PoCs (Testes rápidos, TS/JS/HTML)
 ```
 ## 🚀 Como Subir o Ambiente
@@ -37,15 +40,17 @@ Bash
 docker compose up -d --build
 Acesse os serviços localmente:
 
-Hub Visual (Dashboard): http://localhost:3000
-
-Painel Traefik: http://localhost:8080
-
-Ciclo Harmônico: http://harmonic.traefik.me
-
-Chord Finder: http://chords.traefik.me
-
-Faturas Casal: http://fatura.traefik.me
+| Serviço | Endereço | Observação |
+| --- | --- | --- |
+| Hub Visual (Dashboard) | http://localhost:3000 | |
+| Painel Traefik | http://localhost:8080 | |
+| Ciclo Harmônico | http://harmonic.traefik.me | |
+| Chord Finder | http://chords.traefik.me | |
+| Afinador | http://localhost:8081 | Exposto direto em `localhost` para o navegador liberar o microfone (também em http://afinador.traefik.me) |
+| Faturas Casal | http://fatura.traefik.me | |
+| Slide Math Puzzle | http://puzzle.traefik.me | |
+| AI Slide Builder | http://slides.traefik.me | Requer `GEMINI_API_KEY` no `docker-compose.yml` |
+| Excalidraw | http://excalidraw.traefik.me | Imagem oficial `excalidraw/excalidraw`, sem código local |
 
 🛠️ Comandos Úteis
 Parar o laboratório:
