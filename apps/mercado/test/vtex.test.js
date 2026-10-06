@@ -63,3 +63,8 @@ test('resume simulação com frete rateado entre itens', () => {
     assert.strictEqual(sim.total, 16);
     assert.deepStrictEqual(sim.unavailable, ['2']);
 });
+
+test('link de carrinho usa o domínio de checkout quando configurado', () => {
+    const s = createVtexStore({ id: 'a', name: 'A', baseUrl: 'https://www.loja.com.br', checkoutUrl: 'https://secure.loja.com.br' });
+    assert.match(s.cartUrl([{ skuId: '1', sellerId: '1', qty: 1 }]), /^https:\/\/secure\.loja\.com\.br\/checkout\/cart\/add\?sku=1&/);
+});

@@ -61,7 +61,9 @@ function normalizeProduct(p, store, regionSellerIds = []) {
 }
 
 function createVtexStore(config) {
+    // checkoutUrl: lojas em FastStore (Next.js) servem o checkout em outro domínio, ex.: secure.atacadao.com.br.
     const store = { sc: 1, ...config };
+    store.checkoutUrl = store.checkoutUrl || store.baseUrl;
     const regionCache = new Map();
 
     // Retorna { regionId, sellers: [{id, name}] } para o CEP.
@@ -115,7 +117,7 @@ function createVtexStore(config) {
 
     function cartUrl(items) {
         const params = items.map(i => `sku=${encodeURIComponent(i.skuId)}&qty=${i.qty}&seller=${encodeURIComponent(i.sellerId)}`);
-        return `${store.baseUrl}/checkout/cart/add?${params.join('&')}&sc=${store.sc}&redirect=true`;
+        return `${store.checkoutUrl}/checkout/cart/add?${params.join('&')}&sc=${store.sc}&redirect=true`;
     }
 
     return { ...store, resolveRegion, search, searchByEan, simulate, cartUrl };

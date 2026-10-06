@@ -3,7 +3,7 @@
 const { createVtexStore } = require('./vtex');
 
 const STORES = [
-    createVtexStore({ id: 'atacadao', name: 'Atacadão', baseUrl: 'https://www.atacadao.com.br' }),
+    createVtexStore({ id: 'atacadao', name: 'Atacadão', baseUrl: 'https://www.atacadao.com.br', checkoutUrl: 'https://secure.atacadao.com.br' }),
     createVtexStore({ id: 'carrefour', name: 'Carrefour', baseUrl: 'https://mercado.carrefour.com.br' }),
 ];
 
