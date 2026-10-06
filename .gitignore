@@ -30,3 +30,4 @@ out/
 /apps/lauricas
 *.sh
 /apps/chord-finder/cifras_local/*
+/apps/mercado/data/*

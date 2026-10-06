@@ -28,6 +28,7 @@ lab.projects/
 │   ├── chord-finder/             # App de busca de cifras (Node.js)
 │   ├── fatura-casal-csv-app/     # Leitor e extrator de faturas (Nginx)
 │   ├── harmonic-cicle/           # Estudo visual de ciclo harmônico (Nginx)
+│   ├── mercado/                  # Comparador de preços de supermercado por CEP (Node.js)
 │   └── slide-puzzle/             # Slide Math Puzzle, jogo de lógica numérico (Nginx)
 └── snippets/                     # Scripts isolados e PoCs (Testes rápidos, TS/JS/HTML)
 ```
@@ -49,6 +50,7 @@ Acesse os serviços localmente:
 | Afinador | http://localhost:8081 | Exposto direto em `localhost` para o navegador liberar o microfone (também em http://afinador.traefik.me) |
 | Faturas Casal | http://fatura.traefik.me | |
 | Slide Math Puzzle | http://puzzle.traefik.me | |
+| Mercado | http://mercado.traefik.me | CEP definido em `CEP` no `docker-compose.yml` |
 | AI Slide Builder | http://slides.traefik.me | Requer `GEMINI_API_KEY` no `docker-compose.yml` |
 | Excalidraw | http://excalidraw.traefik.me | Imagem oficial `excalidraw/excalidraw`, sem código local |
 

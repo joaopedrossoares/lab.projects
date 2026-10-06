@@ -137,6 +137,27 @@ services:
         - lab-net
 
 
+  mercado:
+      build: ./apps/mercado
+      container_name: mercado
+      restart: unless-stopped
+      environment:
+        - CEP=30520520
+      volumes:
+        # Persiste a última lista e os produtos fixados
+        - ./apps/mercado/data:/app/data
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mercado.rule=Host(`mercado.traefik.me`)"
+        - "traefik.http.services.mercado.loadbalancer.server.port=3000"
+        - "homepage.group=Finanças"
+        - "homepage.name=Mercado"
+        - "homepage.icon=mdi-cart"
+        - "homepage.href=http://mercado.traefik.me"
+        - "homepage.description=Compara a lista de compras entre supermercados que entregam no CEP"
+      networks:
+        - lab-net
+
   afinador:
       image: nginx:alpine
       # ⚠️ Vamos expor a porta 8081 direto na máquina para contornar o bloqueio de microfone HTTP
