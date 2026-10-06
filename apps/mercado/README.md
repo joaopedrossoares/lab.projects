@@ -11,14 +11,15 @@ Compara o preço da sua lista de compras entre supermercados que entregam no seu
 
 ## Como funciona
 
-- Lojas VTEX (Atacadão, Carrefour Mercado) são consultadas pelas mesmas APIs públicas que o site usa: `regions` (qual loja entrega no CEP), `intelligent-search` (produtos, preço e EAN) e `orderForms/simulation` (preço final e frete).
+- Lojas VTEX (Atacadão, Super Nosso) são consultadas pelas mesmas APIs públicas que o site usa: `regions` (qual loja entrega no CEP), `intelligent-search` (produtos, preço e EAN) e `orderForms/simulation` (preço final e frete).
 - O mesmo produto é reconhecido entre lojas pelo EAN. Quando não há EAN em comum, o app usa o primeiro resultado da busca e avisa.
 - A busca roda com no máximo 4 requisições ao mesmo tempo e fica em cache por 30 minutos.
 - A última lista e os produtos fixados ficam em `data/state.json`.
 
 ## Limitações conhecidas
 
-- Super Nosso e Verdemar ainda não têm conector.
+- Carrefour Mercado ficou de fora: a proteção anti-robô deles responde 403 a qualquer pedido que não venha de um navegador.
+- Verdemar ainda não tem conector (a loja online não é VTEX).
 - Hortifrúti e carnes são vendidos por peso; a comparação desses itens é aproximada.
 - Para adicionar outra loja VTEX, inclua uma linha em `src/stores.js`.
 

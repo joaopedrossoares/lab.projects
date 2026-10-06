@@ -1,4 +1,4 @@
-// Conector genérico para lojas na plataforma VTEX (Atacadão, Carrefour Mercado e muitas outras).
+// Conector genérico para lojas na plataforma VTEX (Atacadão, Super Nosso e muitas outras).
 // Usa só as APIs públicas que o próprio site da loja chama no navegador:
 //   - regions: descobre qual loja/vendedor atende o CEP
 //   - intelligent-search: busca produtos com preço e EAN
