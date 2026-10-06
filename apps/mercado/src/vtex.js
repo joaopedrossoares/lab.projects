@@ -17,7 +17,8 @@ const TIMEOUT_MS = 15000;
 async function getJson(url, options = {}) {
     const res = await fetch(url, {
         ...options,
-        headers: { ...HEADERS, ...(options.headers || {}) },
+        // Origin/Referer da própria loja, como o navegador manda quando o site chama a API.
+        headers: { ...HEADERS, Origin: new URL(url).origin, Referer: `${new URL(url).origin}/`, ...(options.headers || {}) },
         signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) {

@@ -32,6 +32,7 @@ test('busca, fixa produto e monta carrinho', async () => {
         assert.strictEqual(r.options.arroz.a[0].skuId, 'a1');
         assert.deepStrictEqual(r.options.feijao.a, []);
         assert.match(r.stores.find(s => s.id === 'b').error, /403/);
+        assert.deepStrictEqual(r.options.arroz.b, []);
 
         const c = await post('/api/choices', { key: 'arroz', ean: 'E1', name: 'Arroz a1' });
         assert.strictEqual(c.choices.arroz.ean, 'E1');

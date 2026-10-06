@@ -70,8 +70,8 @@ function createApp({ stores, cep }) {
                 info.sellers = region.sellers;
                 if (region.sellers.length === 0) info.error = `Não encontrei entrega para o CEP ${cep}`;
             } catch (e) {
-                info.error = `Não consegui consultar a loja (${e.message})`;
-                return;
+                // Sem a região ainda tentamos a busca, com o preço padrão do site.
+                info.error = `Não consegui ver qual loja entrega no CEP (${e.message})`;
             }
             await Promise.all(items.map(async item => {
                 try {
