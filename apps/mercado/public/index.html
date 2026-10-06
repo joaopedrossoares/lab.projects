@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercado</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #667085; --line: #e4e7ec;
+    --accent: #1f7a4d; --accent-soft: #e6f4ec; --warn: #b54708; --warn-soft: #fef0e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --card: #1b2029; --text: #e6e9ef; --muted: #98a2b3; --line: #2c3340;
+      --accent: #4cc38a; --accent-soft: #173326; --warn: #f5a35c; --warn-soft: #3a2614;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  textarea { width: 100%; min-height: 180px; font: inherit; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  button, .btn { font: inherit; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 8px; padding: 8px 14px; cursor: pointer; text-decoration: none; display: inline-block; }
+  button.ghost, .btn.ghost { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; align-items: start; }
+  .total { border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .total.best { border-color: var(--accent); background: var(--accent-soft); }
+  .total .value { font-size: 24px; font-weight: 700; }
+  .total .err { color: var(--warn); font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 760px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  td.qty { text-align: center; width: 48px; }
+  td.cheapest { background: var(--accent-soft); }
+  select { width: 100%; max-width: 320px; font: inherit; font-size: 13px; padding: 4px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .price { font-weight: 600; margin-top: 4px; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-left: 4px; }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); }
+  .pin { font-size: 12px; padding: 2px 8px; margin-top: 4px; }
+  .cart-result { font-size: 13px; margin-top: 8px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mercado</h1>
+  <p class="sub" id="sub">Carregando…</p>
+
+  <section class="card">
+    <label for="list"><strong>Lista de compras</strong> <span class="muted">um item por linha, quantidade no fim (ex.: "Água com gás 2")</span></label>
+    <textarea id="list" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="go">Comparar preços</button>
+      <span class="muted" id="status"></span>
+    </div>
+  </section>
+
+  <section class="card" id="summary" hidden></section>
+  <section class="card" id="table" hidden></section>
+</main>
+
+<script src="compare.js"></script>
+<script>
+const brl = n => n == null ? '—' : n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let data = null;      // resposta de /api/search
+let picks = {};       // { itemKey: { storeId: product|null } }
+let exact = {};       // { itemKey: true } quando o mesmo EAN foi achado em todas as lojas
+
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+  return json;
+}
+
+async function init() {
+  const state = await api('GET', '/api/state');
+  const cep = state.cep.replace(/(\d{5})(\d{3})/, '$1-$2');
+  document.getElementById('sub').textContent = `Entrega no CEP ${cep} · ${state.stores.map(s => s.name).join(', ')}`;
+  document.getElementById('list').value = state.list || '';
+}
+
+async function compare() {
+  const btn = document.getElementById('go');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.textContent = 'Buscando preços nas lojas, pode levar um minuto na primeira vez…';
+  try {
+    data = await api('POST', '/api/search', { text: document.getElementById('list').value });
+    picks = {}; exact = {};
+    const storeIds = data.stores.map(s => s.id);
+    for (const item of data.items) {
+      const opts = {};
+      for (const s of storeIds) opts[s] = data.options[item.key][s] || [];
+      const saved = data.choices[item.key] && data.choices[item.key].ean;
+      const r = Compare.pickForItem(item, opts, saved);
+      picks[item.key] = r.picks;
+      if (r.exact) exact[item.key] = true;
+    }
+    status.textContent = '';
+    render();
+  } catch (e) {
+    status.textContent = `Erro: ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function render() {
+  const storeIds = data.stores.map(s => s.id);
+  const sum = Compare.summarize(data.items, storeIds, picks);
+  const n = data.items.length;
+  const exactCount = Object.keys(exact).length;
+
+  const bestSingle = storeIds
+    .filter(s => sum.perStore[s].found > 0)
+    .sort((a, b) => sum.commonTotals[a] - sum.commonTotals[b])[0];
+
+  let html = `<h2 style="margin:0 0 12px;font-size:18px">Resumo</h2><div class="totals">`;
+  for (const st of data.stores) {
+    const p = sum.perStore[st.id];
+    html += `<div class="total ${st.id === bestSingle ? 'best' : ''}">
+      <div><strong>${esc(st.name)}</strong>${st.id === bestSingle ? '<span class="tag">mais barata</span>' : ''}</div>
+      ${st.error ? `<div class="err">${esc(st.error)}</div>` : ''}
+      <div class="value">${brl(p.total)}</div>
+      <div class="muted">${p.found} de ${n} itens · só itens em comum: ${brl(sum.commonTotals[st.id])}</div>
+      ${st.sellers.length ? `<div class="muted">Loja que entrega: ${esc(st.sellers.map(x => x.name).join(', '))}</div>` : ''}
+      <div class="row"><button class="ghost" data-cart="${st.id}" data-mode="all">Frete e carrinho</button></div>
+      <div class="cart-result" id="cart-all-${st.id}"></div>
+    </div>`;
+  }
+  html += `<div class="total">
+      <div><strong>Dividindo entre lojas</strong></div>
+      <div class="value">${brl(sum.split.total)}</div>
+      <div class="muted">cada item na loja mais barata, sem frete${sum.split.missing.length ? ` · ${sum.split.missing.length} sem resultado` : ''}</div>`;
+  for (const st of data.stores) {
+    const part = sum.split.stores[st.id];
+    if (!part.items.length) continue;
+    html += `<div class="row"><span>${esc(st.name)}: ${part.items.length} itens, ${brl(part.total)}</span>
+      <button class="ghost" data-cart="${st.id}" data-mode="split">Frete e carrinho</button></div>
+      <div class="cart-result" id="cart-split-${st.id}"></div>`;
+  }
+  html += `</div></div>
+    <p class="muted">Comparação exata (mesmo código de barras em todas as lojas) em ${exactCount} de ${n} itens.
+    Nos outros, confira o produto escolhido em cada loja e use “Fixar” para travar o que você quer.</p>`;
+  const summary = document.getElementById('summary');
+  summary.innerHTML = html;
+  summary.hidden = false;
+
+  let t = `<div class="scroll"><table><thead><tr><th>Item</th><th>Qtd</th>`;
+  for (const st of data.stores) t += `<th>${esc(st.name)}</th>`;
+  t += `</tr></thead><tbody>`;
+  for (const item of data.items) {
+    const row = picks[item.key];
+    const prices = storeIds.map(s => row[s] && row[s].price).filter(p => p != null);
+    const min = prices.length > 1 ? Math.min(...prices) : null;
+    const saved = data.choices[item.key];
+    t += `<tr><td><strong>${esc(item.name)}</strong>
+      ${exact[item.key] ? '<span class="tag">mesmo produto</span>' : ''}
+      ${saved ? `<div class="muted">Fixado: ${esc(saved.name)} <a href="#" data-unpin="${esc(item.key)}">soltar</a></div>` : ''}
+      </td><td class="qty">${item.qty}</td>`;
+    for (const s of storeIds) {
+      const opts = data.options[item.key][s] || [];
+      const cur = row[s];
+      const err = data.errors[item.key][s];
+      if (!opts.length) {
+        t += `<td><span class="tag warn">${err ? 'erro na busca' : 'não encontrado'}</span></td>`;
+        continue;
+      }
+      t += `<td class="${cur && min != null && cur.price === min ? 'cheapest' : ''}">
+        <select data-item="${esc(item.key)}" data-store="${s}">
+          ${opts.map(o => `<option value="${esc(o.skuId)}" ${cur && cur.skuId === o.skuId ? 'selected' : ''}>${esc(o.name)} · ${brl(o.price)}${o.unit !== 'un' ? ` /${o.unitMultiplier} ${esc(o.unit)}` : ''}</option>`).join('')}
+        </select>
+        <div class="price">${brl(Compare.lineTotal(cur, item.qty))} ${cur && cur.listPrice > cur.price ? '<span class="tag">promoção</span>' : ''}</div>
+        <div><a href="${esc(cur ? cur.url : '#')}" target="_blank" rel="noopener" class="muted">ver na loja</a>
+        ${cur && cur.ean ? `<button class="ghost pin" data-pin="${esc(item.key)}" data-store="${s}">Fixar</button>` : ''}</div>
+      </td>`;
+    }
+    t += `</tr>`;
+  }
+  t += `</tbody></table></div>`;
+  const table = document.getElementById('table');
+  table.innerHTML = t;
+  table.hidden = false;
+}
+
+document.addEventListener('change', e => {
+  const sel = e.target.closest('select[data-item]');
+  if (!sel) return;
+  const opts = data.options[sel.dataset.item][sel.dataset.store];
+  picks[sel.dataset.item][sel.dataset.store] = opts.find(o => o.skuId === sel.value) || null;
+  delete exact[sel.dataset.item];
+  render();
+});
+
+document.addEventListener('click', async e => {
+  const pin = e.target.closest('[data-pin]');
+  if (pin) {
+    const key = pin.dataset.pin;
+    const p = picks[key][pin.dataset.store];
+    const r = await api('POST', '/api/choices', { key, ean: p.ean, name: p.name });
+    data.choices = r.choices;
+    // Aplica o mesmo EAN nas outras lojas, se elas tiverem o produto entre as opções.
+    for (const s of Object.keys(picks[key])) {
+      const same = (data.options[key][s] || []).find(o => o.ean === p.ean);
+      if (same) picks[key][s] = same;
+    }
+    render();
+    return;
+  }
+  const unpin = e.target.closest('[data-unpin]');
+  if (unpin) {
+    e.preventDefault();
+    const r = await api('DELETE', `/api/choices/${encodeURIComponent(unpin.dataset.unpin)}`);
+    data.choices = r.choices;
+    render();
+    return;
+  }
+  const cart = e.target.closest('[data-cart]');
+  if (cart) openCart(cart.dataset.cart, cart.dataset.mode, cart);
+});
+
+async function openCart(storeId, mode, btn) {
+  const storeIds = data.stores.map(s => s.id);
+  const sum = Compare.summarize(data.items, storeIds, picks);
+  const keys = mode === 'split' ? sum.split.stores[storeId].items : data.items.map(i => i.key);
+  const items = data.items
+    .filter(i => keys.includes(i.key) && picks[i.key][storeId])
+    .map(i => ({ skuId: picks[i.key][storeId].skuId, sellerId: picks[i.key][storeId].sellerId, qty: i.qty }));
+  const out = document.getElementById(`cart-${mode}-${storeId}`);
+  btn.disabled = true;
+  out.textContent = 'Calculando frete…';
+  try {
+    const r = await api('POST', '/api/cart', { store: storeId, items });
+    const sim = r.simulation;
+    out.innerHTML = (sim
+      ? `Produtos ${brl(sim.subtotal)} · frete ${sim.shipping ? brl(sim.shipping.price) : 'indisponível'} · <strong>total ${brl(sim.total)}</strong>
+         ${sim.unavailable.length ? `<br><span class="tag warn">${sim.unavailable.length} item(ns) indisponível(is) no seu CEP</span>` : ''}`
+      : `<span class="tag warn">${esc(r.error)}</span>`)
+      + `<div class="row"><a class="btn" href="${esc(r.cartUrl)}" target="_blank" rel="noopener">Abrir carrinho na loja</a></div>`;
+  } catch (err) {
+    out.textContent = `Erro: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('go').addEventListener('click', compare);
+init().catch(e => { document.getElementById('sub').textContent = `Erro: ${e.message}`; });
+</script>
+</body>
+</html>

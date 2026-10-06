@@ -8,14 +8,14 @@ services:
   # Responsável por interceptar chamadas e direcionar para o app certo
   # -----------------------------------------------------------
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6
     command:
       - "--api.insecure=true" # Habilita o painel do Traefik
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false" # Segurança: ignora containers sem a label traefik.enable=true
       - "--entryPoints.web.address=:80"
     ports:
-      - "80:80"       # Porta padrão HTTP
+      - "${TRAEFIK_HTTP_PORT:-80}:80"   # Porta HTTP; use TRAEFIK_HTTP_PORT=8088 se a 80 estiver ocupada
       - "8080:8080"   # Painel de controle do Traefik (localhost:8080)
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
@@ -136,6 +136,27 @@ services:
       networks:
         - lab-net
 
+
+  mercado:
+      build: ./apps/mercado
+      container_name: mercado
+      restart: unless-stopped
+      environment:
+        - CEP=30520520
+      volumes:
+        # Persiste a última lista e os produtos fixados
+        - ./apps/mercado/data:/app/data
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.mercado.rule=Host(`mercado.traefik.me`)"
+        - "traefik.http.services.mercado.loadbalancer.server.port=3000"
+        - "homepage.group=Finanças"
+        - "homepage.name=Mercado"
+        - "homepage.icon=mdi-cart"
+        - "homepage.href=http://mercado.traefik.me"
+        - "homepage.description=Compara a lista de compras entre supermercados que entregam no CEP"
+      networks:
+        - lab-net
 
   afinador:
       image: nginx:alpine

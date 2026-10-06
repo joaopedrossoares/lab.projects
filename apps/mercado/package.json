@@ -1,0 +1,13 @@
+{
+  "name": "mercado",
+  "version": "1.0.0",
+  "description": "Compara o preço da lista de compras entre supermercados que entregam no seu CEP",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
