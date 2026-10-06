@@ -10,7 +10,11 @@ __pycache__/
 *.pdf
 *.csv
 *.xlsx
-compras.debug.txt
+*.debug.txt
+
+# Logs
+logs/
+*.log
 
 # Arquivos de sistema e IDEs
 .DS_Store
