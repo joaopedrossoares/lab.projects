@@ -8,7 +8,7 @@ services:
   # Responsável por interceptar chamadas e direcionar para o app certo
   # -----------------------------------------------------------
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6
     command:
       - "--api.insecure=true" # Habilita o painel do Traefik
       - "--providers.docker=true"
