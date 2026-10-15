@@ -30,3 +30,7 @@ out/
 /apps/lauricas
 *.sh
 /apps/chord-finder/cifras_local/*
+/apps/mercado/data/*
+
+# Variáveis locais (ex.: TRAEFIK_HTTP_PORT=8088)
+.env
