@@ -18,7 +18,10 @@ services:
       - "${TRAEFIK_HTTP_PORT:-80}:80"   # Porta HTTP; use TRAEFIK_HTTP_PORT=8088 se a 80 estiver ocupada
       - "8080:8080"   # Painel de controle do Traefik (localhost:8080)
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "${CONTAINER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock:ro"
+    # Podman (VM com SELinux) bloqueia o acesso ao socket sem isto; no Docker não muda nada
+    security_opt:
+      - label=disable
     networks:
       - lab-net
 
@@ -31,8 +34,10 @@ services:
       ports:
         - "3000:3000" # Expõe o painel diretamente na máquina física
       volumes:
-        - "/var/run/docker.sock:/var/run/docker.sock:ro"
+        - "${CONTAINER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock:ro"
         - "./config-homepage:/app/config"
+      security_opt:
+        - label=disable
       networks:
         - lab-net
 
