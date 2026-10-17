@@ -163,6 +163,25 @@ services:
       networks:
         - lab-net
 
+  cesta-basica:
+      build: ./apps/cesta-basica
+      container_name: cesta-basica
+      restart: unless-stopped
+      volumes:
+        # Planilhas mensais do DIEESE (somente leitura). Outra pasta: DIEESE_DIR no .env
+        - "${DIEESE_DIR:-~/Documents/diaeese/items}:/data:ro"
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.cesta.rule=Host(`cesta.traefik.me`)"
+        - "traefik.http.services.cesta.loadbalancer.server.port=8000"
+        - "homepage.group=Finanças"
+        - "homepage.name=Cesta Básica"
+        - "homepage.icon=mdi-chart-line"
+        - "homepage.href=http://cesta.traefik.me:${TRAEFIK_HTTP_PORT:-80}"
+        - "homepage.description=Preço da cesta básica (DIEESE) em 2018-2022 x 2022-2026"
+      networks:
+        - lab-net
+
   afinador:
       image: nginx:alpine
       # ⚠️ Vamos expor a porta 8081 direto na máquina para contornar o bloqueio de microfone HTTP
