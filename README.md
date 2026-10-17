@@ -25,6 +25,7 @@ lab.projects/
 ├── apps/                         # Aplicações completas com interface web
 │   ├── afinador/                 # Afinador de instrumentos via microfone (Nginx)
 │   ├── ai-slide-generator/       # Gerador de slides com IA (Gemini + Marp, Node.js)
+│   ├── cesta-basica/             # Gráfico da cesta básica DIEESE, 2018-2022 x 2022-2026 (Python)
 │   ├── chord-finder/             # App de busca de cifras (Node.js)
 │   ├── fatura-casal-csv-app/     # Leitor e extrator de faturas (Nginx)
 │   ├── harmonic-cicle/           # Estudo visual de ciclo harmônico (Nginx)
@@ -50,6 +51,7 @@ Acesse os serviços localmente:
 | Afinador | http://localhost:8081 | Exposto direto em `localhost` para o navegador liberar o microfone (também em http://afinador.traefik.me) |
 | Faturas Casal | http://fatura.traefik.me | |
 | Slide Math Puzzle | http://puzzle.traefik.me | |
+| Cesta Básica | http://cesta.traefik.me | Lê as planilhas de `~/Documents/diaeese/items` (ou `DIEESE_DIR` no `.env`) |
 | Mercado | http://mercado.traefik.me | CEP definido em `CEP` no `docker-compose.yml` |
 | AI Slide Builder | http://slides.traefik.me | Requer `GEMINI_API_KEY` no `docker-compose.yml` |
 | Excalidraw | http://excalidraw.traefik.me | Imagem oficial `excalidraw/excalidraw`, sem código local |
