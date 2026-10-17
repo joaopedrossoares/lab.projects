@@ -1,0 +1,33 @@
+# Publica o app cesta-basica no GitHub Pages usando o retrato em public/data/.
+# Para atualizar os dados: python apps/cesta-basica/export_static.py, commit e push na main.
+name: Pages (cesta-basica)
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/cesta-basica/public/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/cesta-basica/public
+      - id: deployment
+        uses: actions/deploy-pages@v4

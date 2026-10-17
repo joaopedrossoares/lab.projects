@@ -136,13 +136,24 @@ function render() {
     }
 }
 
+// Com servidor, os dados vêm de api/*; publicado sem servidor (GitHub Pages),
+// vêm do retrato em data/*.json gerado por export_static.py.
+async function loadJson(name) {
+    for (const url of [`api/${name}`, `data/${name}.json`]) {
+        const res = await fetch(url).catch(() => null);
+        if (!res) continue;
+        const body = await res.json().catch(() => null);
+        if (res.ok && body) return body;
+        if (body?.error) throw new Error(body.error);
+    }
+    throw new Error(`${name} indisponível`);
+}
+
 async function main() {
     Chart.defaults.color = css('--muted');
     Chart.defaults.font.family = css('--font');
     try {
-        const res = await fetch('/api/series');
-        data = await res.json();
-        if (!res.ok) throw new Error(data.error);
+        data = await loadJson('series');
     } catch (err) {
         $('#status').textContent = `Não consegui ler os dados: ${err.message}`;
         return;
@@ -153,10 +164,7 @@ async function main() {
     }
     // Índices do Banco Central são opcionais: sem eles o app segue em R$ nominais.
     try {
-        const res = await fetch('/api/indices');
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.error);
-        indices = body;
+        indices = await loadJson('indices');
     } catch (err) {
         indicesError = err.message;
     }
@@ -164,6 +172,7 @@ async function main() {
     const first = data.months[0].month, last = data.months[data.months.length - 1].month;
     $('#status').textContent = `${data.cities.join(', ')} · ${data.months.length} meses (${formatMonth(first)} a ${formatMonth(last)}) · Fonte: DIEESE`
         + (indices ? ' e Banco Central (INPC, salário mínimo)' : '')
+        + (data.snapshot ? ` · dados de ${data.snapshot.split('-').reverse().join('/')}` : '')
         + (data.errors.length ? ` · ${data.errors.length} planilha(s) ignorada(s)` : '');
     renderControls();
     render();
