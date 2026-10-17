@@ -19,6 +19,16 @@ INPC e salário mínimo vêm da API SGS do Banco Central (séries 188 e 1619), c
 
 A pasta é montada somente leitura em `/data`. O servidor relê as planilhas quando algum arquivo muda.
 
+## Publicar no GitHub Pages
+
+O app também roda sem servidor, lendo um retrato dos dados em `public/data/`. Para atualizar esse retrato:
+
+```bash
+python export_static.py   # lê ~/Documents/diaeese/items e o Banco Central
+```
+
+Faça commit e push na `main`: o workflow `.github/workflows/pages-cesta-basica.yml` publica `public/` em https://joaopedrossoares.github.io/lab.projects/. Na primeira vez, ative em Settings → Pages → Source: GitHub Actions.
+
 ## Como estender o gráfico
 
 - **Outro período:** acrescente uma linha em `public/config.js`.
