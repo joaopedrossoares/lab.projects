@@ -1,8 +1,9 @@
-"""Servidor do app: entrega a pasta public/ e a série em /api/series."""
+"""Servidor do app: entrega a pasta public/, a série em /api/series e os índices em /api/indices."""
 import json
 import os
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+import indices
 from dieese import load_dir
 
 DATA_DIR = os.environ.get("DATA_DIR", "/data")
@@ -25,18 +26,26 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=PUBLIC, **kwargs)
 
+    def send_json(self, value, status=200):
+        body = json.dumps(value, ensure_ascii=False).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
-        if self.path.split("?")[0] == "/api/series":
+        path = self.path.split("?")[0]
+        if path == "/api/series":
             try:
-                body, status = json.dumps(series(), ensure_ascii=False).encode(), 200
+                return self.send_json(series())
             except OSError as exc:
-                body, status = json.dumps({"error": f"Pasta de dados ilegível: {exc}"}).encode(), 500
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
+                return self.send_json({"error": f"Pasta de dados ilegível: {exc}"}, 500)
+        if path == "/api/indices":
+            try:
+                return self.send_json(indices.fetch())
+            except Exception as exc:
+                return self.send_json({"error": f"Banco Central indisponível: {exc}"}, 502)
         super().do_GET()
 
 

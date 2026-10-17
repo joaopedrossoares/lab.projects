@@ -15,6 +15,8 @@ for (const f of FEATURES) {
 }
 
 let data;
+let indices = null;
+let indicesError = '';
 let chart;
 
 function saveState() {
@@ -113,7 +115,7 @@ function baseConfig(series) {
 function render() {
     saveState();
     const raw = buildSeries(data, state.item, PERIODS);
-    const ctx = { data, item: state.item, periods: PERIODS, raw, series: raw };
+    const ctx = { data, indices, indicesError, item: state.item, periods: PERIODS, raw, series: raw };
 
     for (const f of FEATURES) if (f.transform) ctx.series = f.transform(ctx.series, state[f.id], ctx);
 
@@ -149,9 +151,19 @@ async function main() {
         $('#status').textContent = 'Nenhuma planilha .xls encontrada na pasta de dados.';
         return;
     }
+    // Índices do Banco Central são opcionais: sem eles o app segue em R$ nominais.
+    try {
+        const res = await fetch('/api/indices');
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error);
+        indices = body;
+    } catch (err) {
+        indicesError = err.message;
+    }
     if (!data.items.includes(state.item)) state.item = data.items[0];
     const first = data.months[0].month, last = data.months[data.months.length - 1].month;
     $('#status').textContent = `${data.cities.join(', ')} · ${data.months.length} meses (${formatMonth(first)} a ${formatMonth(last)}) · Fonte: DIEESE`
+        + (indices ? ' e Banco Central (INPC, salário mínimo)' : '')
         + (data.errors.length ? ` · ${data.errors.length} planilha(s) ignorada(s)` : '');
     renderControls();
     render();

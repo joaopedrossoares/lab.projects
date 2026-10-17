@@ -17,4 +17,5 @@ import mediaMovel from './media-movel.js';
 import escala from './escala.js';
 import resumo from './resumo.js';
 
-export const FEATURES = [eixo, mediaMovel, escala, resumo];
+// A escala vem antes da média móvel para que a suavização use a unidade escolhida.
+export const FEATURES = [eixo, escala, mediaMovel, resumo];
