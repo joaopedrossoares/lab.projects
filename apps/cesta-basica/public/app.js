@@ -1,4 +1,4 @@
-import { PERIODS, DEFAULT_ITEM } from './config.js';
+import { DEFAULT_ITEM } from './config.js';
 import { buildSeries, brl, formatMonth } from './series.js';
 import { FEATURES } from './features/index.js';
 
@@ -114,8 +114,10 @@ function baseConfig(series) {
 
 function render() {
     saveState();
-    const raw = buildSeries(data, state.item, PERIODS);
-    const ctx = { data, indices, indicesError, item: state.item, periods: PERIODS, raw, series: raw };
+    let periods = [];
+    for (const f of FEATURES) if (f.periods) periods = f.periods(periods, state[f.id], { data });
+    const raw = buildSeries(data, state.item, periods);
+    const ctx = { data, indices, indicesError, item: state.item, periods, raw, series: raw };
 
     for (const f of FEATURES) if (f.transform) ctx.series = f.transform(ctx.series, state[f.id], ctx);
 

@@ -1,6 +1,8 @@
 # Cesta Básica
 
-Gráfico do gasto mensal da cesta básica (DIEESE) comparando os períodos set/2018 – set/2022 e set/2022 – set/2026.
+Gráfico do gasto mensal da cesta básica (DIEESE) em Belo Horizonte, comparando períodos: set/2018 – set/2022 × set/2022 – set/2026, ou pré, durante e pós pandemia (mar/2020 a mai/2023).
+
+A planilha de mai/2021 do DIEESE vem sem valores; esse mês fica de fora do gráfico.
 
 ## Como usar
 
@@ -31,7 +33,7 @@ Faça commit e push na `main`: o workflow `.github/workflows/pages-cesta-basica.
 
 ## Como estender o gráfico
 
-- **Outro período:** acrescente uma linha em `public/config.js`.
+- **Outra comparação de períodos:** acrescente uma entrada em `COMPARISONS`, em `public/config.js`. Ela aparece sozinha no seletor **Comparar**.
 - **Novo recurso:** crie um arquivo em `public/features/` e registre-o em `public/features/index.js`. Cada recurso declara seu controle (toggle ou select) e usa os ganchos que precisar: `transform` (mexe nos dados), `chart` (mexe na configuração do Chart.js) ou `panel` (desenha abaixo do gráfico). Os controles e o parâmetro na URL aparecem sozinhos. Veja `media-movel.js` como exemplo curto.
 
 ## Testes
