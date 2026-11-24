@@ -20,8 +20,9 @@ import {
   type Transaction,
   type TransactionScope,
 } from "@financas/shared";
+import { CurrencyInput } from "../components/CurrencyInput";
 import { DEFAULT_CATEGORIES } from "../lib/categories";
-import { formatBRL, parseMoneyInput } from "../lib/format";
+import { formatBRL } from "../lib/format";
 import { readAndParseItauPdf } from "../lib/pdfReader";
 
 type ReviewFilter = "all" | "unmatched" | "matched";
@@ -64,14 +65,14 @@ export function ConferencePage({
 
   // Manual entry quick form
   const [manualDesc, setManualDesc] = useState("");
-  const [manualAmount, setManualAmount] = useState("");
+  const [manualAmount, setManualAmount] = useState(0);
   const [manualPaidBy, setManualPaidBy] = useState<PaidBy>("partner");
   const [manualScope, setManualScope] = useState<TransactionScope>("couple");
   const [manualCategory, setManualCategory] = useState("Casa & Contas");
 
   // Check-in dialog state
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [coupleSavedInput, setCoupleSavedInput] = useState("0");
+  const [coupleSavedInput, setCoupleSavedInput] = useState(0);
   const [checkinNotesInput, setCheckinNotesInput] = useState("");
   const [newPlanText, setNewPlanText] = useState("");
 
@@ -98,7 +99,7 @@ export function ConferencePage({
       setTransactions(data.transactions || []);
       setFutureInstallments(data.futureInstallments || []);
       setCouplePlans(data.couplePlans || []);
-      setCoupleSavedInput(String(data.closing?.coupleSavedThisMonth ?? 0));
+      setCoupleSavedInput(data.closing?.coupleSavedThisMonth ?? 0);
       setCheckinNotesInput(data.closing?.coupleCheckinNotes ?? "");
       if ((data.transactions || []).length > 0) {
         setFileName(`Salvo (${targetMonth})`);
@@ -218,8 +219,7 @@ export function ConferencePage({
 
   function handleAddManualTransaction(event: FormEvent) {
     event.preventDefault();
-    const numeric = parseMoneyInput(manualAmount);
-    if (!manualDesc.trim() || !Number.isFinite(numeric) || numeric <= 0) return;
+    if (!manualDesc.trim() || !Number.isFinite(manualAmount) || manualAmount <= 0) return;
 
     const tx: Transaction = {
       id: `${month}-manual-${Date.now().toString(36)}`,
@@ -231,14 +231,14 @@ export function ConferencePage({
       normalizedMerchant: normalizeMerchantKey(manualDesc.trim()),
       friendlyName: manualDesc.trim(),
       category: manualCategory.trim() || "Casa & Contas",
-      amount: numeric,
+      amount: manualAmount,
       scope: manualScope,
       mySharePct: 50,
     };
 
     setTransactions((prev) => [tx, ...prev]);
     setManualDesc("");
-    setManualAmount("");
+    setManualAmount(0);
     setStatusMessage(`Gasto "${tx.friendlyName}" adicionado à competência ${month}.`);
   }
 
@@ -361,7 +361,7 @@ export function ConferencePage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
-          coupleSavedThisMonth: parseMoneyInput(coupleSavedInput),
+          coupleSavedThisMonth: coupleSavedInput,
           coupleCheckinNotes: checkinNotesInput,
           transactions,
           futureInstallments,
@@ -593,15 +593,13 @@ export function ConferencePage({
             />
           </div>
           <div className="field field-compact">
-            <label htmlFor="manual-amount">Valor (R$)</label>
-            <input
+            <label htmlFor="manual-amount">Valor</label>
+            <CurrencyInput
               id="manual-amount"
-              type="text"
-              inputMode="decimal"
               required
+              emptyWhenZero
               value={manualAmount}
-              onChange={(e) => setManualAmount(e.target.value)}
-              placeholder="350,00"
+              onChange={setManualAmount}
             />
           </div>
           <div className="field field-compact">
@@ -882,15 +880,12 @@ export function ConferencePage({
           <div className="stack-md">
             <div className="field">
               <label htmlFor={savedInputId}>
-                Quanto vocês conseguiram guardar juntos nas economias em conjunto este mês? (R$)
+                Quanto vocês conseguiram guardar juntos nas economias em conjunto este mês?
               </label>
-              <input
+              <CurrencyInput
                 id={savedInputId}
-                type="text"
-                inputMode="decimal"
                 value={coupleSavedInput}
-                onChange={(e) => setCoupleSavedInput(e.target.value)}
-                placeholder="Ex.: 1500,00"
+                onChange={setCoupleSavedInput}
               />
             </div>
 

@@ -5,7 +5,8 @@ import type {
   SafetyIndicators,
   TransactionScope,
 } from "@financas/shared";
-import { formatBRL, parseMoneyInput } from "../lib/format";
+import { CurrencyInput } from "../components/CurrencyInput";
+import { formatBRL } from "../lib/format";
 
 interface SimulationOutput {
   myTotalCost: number;
@@ -39,7 +40,7 @@ export function PlannerPage() {
 
   // New purchase form
   const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("");
+  const [price, setPrice] = useState(0);
   const [installments, setInstallments] = useState(1);
   const [scope, setScope] = useState<TransactionScope>("individual");
   const [urgency, setUrgency] = useState(3);
@@ -121,15 +122,14 @@ export function PlannerPage() {
 
   async function handleAddPurchase(event: FormEvent) {
     event.preventDefault();
-    const numeric = parseMoneyInput(price);
-    if (!title.trim() || !Number.isFinite(numeric) || numeric <= 0) return;
+    if (!title.trim() || !Number.isFinite(price) || price <= 0) return;
 
     const res = await fetch("/api/planner/purchases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: title.trim(),
-        estimatedPrice: numeric,
+        estimatedPrice: price,
         defaultInstallments: installments,
         scope,
         urgency,
@@ -140,7 +140,7 @@ export function PlannerPage() {
 
     if (res.ok) {
       setTitle("");
-      setPrice("");
+      setPrice(0);
       setInstallments(1);
       setNotes("");
       setStatusMessage("Compra adicionada ao backlog de planejamento.");
@@ -379,15 +379,13 @@ export function PlannerPage() {
             />
           </div>
           <div className="field field-compact">
-            <label htmlFor="buy-price">Preço estimado (R$)</label>
-            <input
+            <label htmlFor="buy-price">Preço estimado</label>
+            <CurrencyInput
               id="buy-price"
-              type="text"
-              inputMode="decimal"
               required
+              emptyWhenZero
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="2500,00"
+              onChange={setPrice}
             />
           </div>
           <div className="field field-compact">

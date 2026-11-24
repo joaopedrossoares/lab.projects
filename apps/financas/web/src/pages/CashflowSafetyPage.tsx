@@ -8,7 +8,8 @@ import type {
   TransactionScope,
   UserProfile,
 } from "@financas/shared";
-import { formatBRL, parseMoneyInput } from "../lib/format";
+import { CurrencyInput } from "../components/CurrencyInput";
+import { formatBRL } from "../lib/format";
 
 interface SafetyBreakdown {
   monthlyIncome: number;
@@ -44,15 +45,15 @@ export function CashflowSafetyPage() {
   // Recurring form
   const [direction, setDirection] = useState<"income" | "expense">("income");
   const [title, setTitle] = useState("");
-  const [expectedAmount, setExpectedAmount] = useState("");
+  const [expectedAmount, setExpectedAmount] = useState(0);
   const [scope, setScope] = useState<TransactionScope>("couple");
   const [paidBy, setPaidBy] = useState<PaidBy>("me");
   const [mySharePct, setMySharePct] = useState(50);
 
   // Reserve form
-  const [liquidReserve, setLiquidReserve] = useState("0");
-  const [coupleSavings, setCoupleSavings] = useState("0");
-  const [otherInvestments, setOtherInvestments] = useState("0");
+  const [liquidReserve, setLiquidReserve] = useState(0);
+  const [coupleSavings, setCoupleSavings] = useState(0);
+  const [otherInvestments, setOtherInvestments] = useState(0);
 
   // Indicator targets form
   const [targetRunway, setTargetRunway] = useState(6);
@@ -66,9 +67,9 @@ export function CashflowSafetyPage() {
       if (!res.ok) return;
       const payload = (await res.json()) as SafetyOverviewResponse;
       setData(payload);
-      setLiquidReserve(String(payload.reserve.liquidEmergencyReserve ?? 0));
-      setCoupleSavings(String(payload.reserve.coupleAccumulatedSavings ?? 0));
-      setOtherInvestments(String(payload.reserve.otherInvestments ?? 0));
+      setLiquidReserve(payload.reserve.liquidEmergencyReserve ?? 0);
+      setCoupleSavings(payload.reserve.coupleAccumulatedSavings ?? 0);
+      setOtherInvestments(payload.reserve.otherInvestments ?? 0);
       setTargetRunway(payload.profile.targetRunwayMonths ?? 6);
       setMaxCommitment(payload.profile.maxCommitmentPct ?? 60);
       setTargetSavingsRate(payload.profile.targetSavingsRatePct ?? 20);
@@ -83,8 +84,7 @@ export function CashflowSafetyPage() {
 
   async function handleAddRecurring(event: FormEvent) {
     event.preventDefault();
-    const numeric = parseMoneyInput(expectedAmount);
-    if (!title.trim() || !Number.isFinite(numeric) || numeric <= 0) return;
+    if (!title.trim() || !Number.isFinite(expectedAmount) || expectedAmount <= 0) return;
 
     const res = await fetch("/api/safety/cashflow", {
       method: "POST",
@@ -92,7 +92,7 @@ export function CashflowSafetyPage() {
       body: JSON.stringify({
         direction,
         title: title.trim(),
-        expectedAmount: numeric,
+        expectedAmount,
         scope: direction === "income" ? "individual" : scope,
         paidBy: direction === "income" ? "me" : paidBy,
         mySharePct: scope === "couple" ? mySharePct : 100,
@@ -101,7 +101,7 @@ export function CashflowSafetyPage() {
 
     if (res.ok) {
       setTitle("");
-      setExpectedAmount("");
+      setExpectedAmount(0);
       setFeedback("Item de fluxo recorrente salvo.");
       await loadOverview();
     }
@@ -123,9 +123,9 @@ export function CashflowSafetyPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        liquidEmergencyReserve: parseMoneyInput(liquidReserve),
-        coupleAccumulatedSavings: parseMoneyInput(coupleSavings),
-        otherInvestments: parseMoneyInput(otherInvestments),
+        liquidEmergencyReserve: liquidReserve,
+        coupleAccumulatedSavings: coupleSavings,
+        otherInvestments,
       }),
     });
     if (res.ok) {
@@ -217,35 +217,29 @@ export function CashflowSafetyPage() {
           <h2>Reservas & Patrimônio</h2>
           <form className="stack-md" onSubmit={handleSaveReserve}>
             <div className="field">
-              <label htmlFor="res-liquid">Minha reserva líquida de emergência (R$)</label>
-              <input
+              <label htmlFor="res-liquid">Minha reserva líquida de emergência</label>
+              <CurrencyInput
                 id="res-liquid"
-                type="text"
-                inputMode="decimal"
                 value={liquidReserve}
-                onChange={(e) => setLiquidReserve(e.target.value)}
+                onChange={setLiquidReserve}
               />
             </div>
 
             <div className="field">
-              <label htmlFor="res-couple">Economias acumuladas do casal (R$)</label>
-              <input
+              <label htmlFor="res-couple">Economias acumuladas do casal</label>
+              <CurrencyInput
                 id="res-couple"
-                type="text"
-                inputMode="decimal"
                 value={coupleSavings}
-                onChange={(e) => setCoupleSavings(e.target.value)}
+                onChange={setCoupleSavings}
               />
             </div>
 
             <div className="field">
-              <label htmlFor="res-other">Outros investimentos (R$)</label>
-              <input
+              <label htmlFor="res-other">Outros investimentos</label>
+              <CurrencyInput
                 id="res-other"
-                type="text"
-                inputMode="decimal"
                 value={otherInvestments}
-                onChange={(e) => setOtherInvestments(e.target.value)}
+                onChange={setOtherInvestments}
               />
             </div>
 
@@ -329,15 +323,13 @@ export function CashflowSafetyPage() {
           </div>
 
           <div className="field field-compact">
-            <label htmlFor="cf-amt">Valor mensal (R$)</label>
-            <input
+            <label htmlFor="cf-amt">Valor mensal</label>
+            <CurrencyInput
               id="cf-amt"
-              type="text"
-              inputMode="decimal"
               required
+              emptyWhenZero
               value={expectedAmount}
-              onChange={(e) => setExpectedAmount(e.target.value)}
-              placeholder="2500,00"
+              onChange={setExpectedAmount}
             />
           </div>
 
