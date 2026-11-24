@@ -151,7 +151,7 @@ fi
 echo "============================================================"
 
 # shellcheck disable=SC2086
-docker compose "${COMPOSE_ARGS[@]}" up -d $BUILD_FLAG "${UNIQUE_SERVICES[@]}"
+docker compose ${COMPOSE_ARGS[@]+"${COMPOSE_ARGS[@]}"} up -d $BUILD_FLAG "${UNIQUE_SERVICES[@]}"
 
 echo ""
 echo "Serviços no ar:"
