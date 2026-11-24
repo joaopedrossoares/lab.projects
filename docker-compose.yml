@@ -2,6 +2,9 @@ networks:
   lab-net:
     name: lab-net
 
+volumes:
+  financas-pgdata:
+
 services:
   # -----------------------------------------------------------
   # 1. O ROTEADOR (Traefik)
@@ -100,6 +103,44 @@ services:
         - "homepage.description=Conferência de faturas, segurança financeira e planejamento com IA"
       networks:
         - lab-net
+
+  financas-postgres:
+      image: postgres:17-alpine
+      container_name: financas-postgres
+      restart: unless-stopped
+      profiles: ["homelab"]
+      environment:
+        - POSTGRES_DB=financas
+        - POSTGRES_USER=financas
+        - POSTGRES_PASSWORD=${FINANCAS_PG_PASSWORD:-financas_local_pass}
+      volumes:
+        - financas-pgdata:/var/lib/postgresql/data
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U financas -d financas"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      networks:
+        - lab-net
+
+  financas-backend:
+      build:
+        context: ./apps/financas
+        dockerfile: Dockerfile.backend
+      container_name: financas-backend
+      restart: unless-stopped
+      profiles: ["homelab"]
+      depends_on:
+        financas-postgres:
+          condition: service_healthy
+      environment:
+        - PORT=3001
+        - DATABASE_URL=postgresql://financas:${FINANCAS_PG_PASSWORD:-financas_local_pass}@financas-postgres:5432/financas
+        - DATABASE_SSL=false
+        - SYNC_API_TOKEN=${FINANCAS_SYNC_TOKEN:-}
+      networks:
+        - lab-net
+
   excalidraw:
       image: excalidraw/excalidraw:latest
       container_name: excalidraw
