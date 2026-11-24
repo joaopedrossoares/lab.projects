@@ -44,10 +44,10 @@ interface AuditSample {
 }
 
 const GEMINI_MODELS = [
+  "gemini-3.5-flash-lite",
   "gemini-4-hydrogen",
   "gemini-4-argon",
   "gemini-4-neon",
-  "gemini-3.5-flash-lite",
 ];
 
 export function SettingsPage() {

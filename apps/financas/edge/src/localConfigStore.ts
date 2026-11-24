@@ -5,7 +5,7 @@ import type { CryptoVault } from "@financas/shared/crypto";
 
 export const DEFAULT_AI_CONFIG: AIProviderConfig = {
   provider: "gemini",
-  model: "gemini-4-hydrogen",
+  model: "gemini-3.5-flash-lite",
   baseUrl: "",
 };
 
