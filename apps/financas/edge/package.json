@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@financas/shared": "1.0.0",
+    "@google/genai": "^3.5.0",
     "express": "^5.1.0"
   },
   "devDependencies": {

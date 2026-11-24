@@ -4,6 +4,7 @@ import { CashflowSafetyPage } from "./pages/CashflowSafetyPage";
 import { ConferencePage } from "./pages/ConferencePage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { LabelsPage } from "./pages/LabelsPage";
+import { PlannerPage } from "./pages/PlannerPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 type PageKey = "conference" | "labels" | "safety" | "planner" | "history" | "settings";
@@ -135,18 +136,12 @@ export function App({ pdfParser }: AppProps) {
           <LabelsPage />
         ) : activePage === "safety" ? (
           <CashflowSafetyPage />
+        ) : activePage === "planner" ? (
+          <PlannerPage />
         ) : activePage === "history" ? (
           <HistoryPage onOpenMonth={handleOpenMonthFromHistory} />
-        ) : activePage === "settings" ? (
-          <SettingsPage />
         ) : (
-          <section className="card placeholder-card">
-            <p className="eyebrow">{currentNav.phaseHint}</p>
-            <h1 id="conteudo-principal" tabIndex={-1}>
-              {currentNav.title}
-            </h1>
-            <p>{currentNav.description}</p>
-          </section>
+          <SettingsPage />
         )}
       </main>
     </>

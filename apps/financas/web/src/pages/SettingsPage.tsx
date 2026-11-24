@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState, type ChangeEvent, type FormEvent } from "react";
+import type { AIProviderType } from "@financas/shared";
 
 interface PrivacyStatusPayload {
   mode: "hybrid-remote" | "local-sqlite";
@@ -17,6 +18,15 @@ interface PrivacyStatusPayload {
   };
 }
 
+interface SafeAIConfig {
+  provider: AIProviderType;
+  model: string;
+  baseUrl: string;
+  hasApiKey: boolean;
+  apiKeySource: "local-settings" | "env" | "none";
+  apiKeyPreview: string;
+}
+
 interface AuditSample {
   id: string;
   entityType: string;
@@ -33,10 +43,29 @@ interface AuditSample {
   };
 }
 
+const GEMINI_MODELS = [
+  "gemini-4-hydrogen",
+  "gemini-4-argon",
+  "gemini-4-neon",
+  "gemini-3.5-flash-lite",
+];
+
 export function SettingsPage() {
   const [status, setStatus] = useState<PrivacyStatusPayload | null>(null);
   const [samples, setSamples] = useState<AuditSample[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // AI local settings
+  const [aiConfig, setAiConfig] = useState<SafeAIConfig | null>(null);
+  const [provider, setProvider] = useState<AIProviderType>("gemini");
+  const [model, setModel] = useState("gemini-4-hydrogen");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [aiFeedback, setAiFeedback] = useState("");
+  const [testingAI, setTestingAI] = useState(false);
+
+  // Privacy audit & backup
   const [testResult, setTestResult] = useState<{
     ok: boolean;
     verifiedZeroKnowledge: boolean;
@@ -44,13 +73,21 @@ export function SettingsPage() {
     error?: string;
   } | null>(null);
   const [testing, setTesting] = useState(false);
+  const [backupFeedback, setBackupFeedback] = useState("");
+
+  const providerId = useId();
+  const modelId = useId();
+  const baseUrlId = useId();
+  const apiKeyId = useId();
+  const importBackupId = useId();
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statusRes, auditRes] = await Promise.all([
+      const [statusRes, auditRes, aiRes] = await Promise.all([
         fetch("/api/privacy/status"),
         fetch("/api/privacy/audit?limit=5"),
+        fetch("/api/ai/config"),
       ]);
       if (statusRes.ok) {
         setStatus((await statusRes.json()) as PrivacyStatusPayload);
@@ -58,6 +95,13 @@ export function SettingsPage() {
       if (auditRes.ok) {
         const auditData = (await auditRes.json()) as { samples: AuditSample[] };
         setSamples(auditData.samples);
+      }
+      if (aiRes.ok) {
+        const data = (await aiRes.json()) as { config: SafeAIConfig };
+        setAiConfig(data.config);
+        setProvider(data.config.provider);
+        setModel(data.config.model);
+        setBaseUrl(data.config.baseUrl);
       }
     } catch {
       // Edge API might be unavailable in static preview mode
@@ -69,6 +113,43 @@ export function SettingsPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  async function handleSaveAIConfig(event: FormEvent) {
+    event.preventDefault();
+    setAiFeedback("");
+    const res = await fetch("/api/ai/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider,
+        model,
+        baseUrl,
+        apiKey: apiKeyInput.trim() || undefined,
+      }),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { config: SafeAIConfig };
+      setAiConfig(data.config);
+      setApiKeyInput("");
+      setAiFeedback("Configuração de IA salva exclusivamente no volume local cifrado do Edge.");
+    } else {
+      setAiFeedback("Falha ao salvar configuração de IA.");
+    }
+  }
+
+  async function handleTestAI() {
+    setTestingAI(true);
+    setAiFeedback("");
+    try {
+      const res = await fetch("/api/ai/test", { method: "POST" });
+      const data = (await res.json()) as { ok: boolean; message: string };
+      setAiFeedback(data.ok ? `✓ ${data.message}` : `✕ ${data.message}`);
+    } catch {
+      setAiFeedback("Erro ao testar conexão com o provedor de IA.");
+    } finally {
+      setTestingAI(false);
+    }
+  }
 
   async function handleRunRoundtripTest() {
     setTesting(true);
@@ -90,19 +171,163 @@ export function SettingsPage() {
     }
   }
 
+  async function handleExportSnapshot() {
+    setBackupFeedback("");
+    const res = await fetch("/api/privacy/snapshot");
+    if (!res.ok) {
+      setBackupFeedback("Erro ao exportar backup cifrado.");
+      return;
+    }
+    const payload = await res.json();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `financas-backup-cifrado-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setBackupFeedback(`Backup exportado com ${payload.count} envelopes cifrados.`);
+  }
+
+  async function handleImportSnapshot(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBackupFeedback("");
+    try {
+      const parsed = JSON.parse(await file.text());
+      const res = await fetch("/api/privacy/snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records: parsed.records }),
+      });
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as { imported: number };
+      setBackupFeedback(`${data.imported} envelopes cifrados restaurados com sucesso.`);
+      await loadData();
+    } catch {
+      setBackupFeedback("Arquivo de backup inválido ou erro ao restaurar.");
+    }
+  }
+
   return (
     <div className="stack-lg">
       <section className="card section-card">
-        <p className="eyebrow">Privacidade Zero-Knowledge</p>
+        <p className="eyebrow">IA Plugável • Chave 100% Local</p>
         <h1 id="conteudo-principal" tabIndex={-1}>
-          Configurações & Auditoria
+          Configurações, IA & Privacidade
         </h1>
         <p className="hero-text">
-          Todos os dados sensíveis (nomes, estabelecimentos, planos do casal e valores) são
-          cifrados no Edge Local com <code>AES-256-GCM</code> antes de chegar ao backend em
-          produção.
+          Configure o provedor de IA diretamente por aqui. A chave fica salva{" "}
+          <strong>apenas no volume local cifrado do Edge</strong> (nunca sobe para a Railway).
         </p>
 
+        <form className="stack-md" onSubmit={handleSaveAIConfig}>
+          <div className="inline-form">
+            <div className="field field-compact">
+              <label htmlFor={providerId}>Provedor de IA</label>
+              <select
+                id={providerId}
+                value={provider}
+                onChange={(e) => {
+                  const next = e.target.value as AIProviderType;
+                  setProvider(next);
+                  if (next === "gemini") setModel("gemini-4-hydrogen");
+                  if (next === "ollama") {
+                    setModel("llama3.1");
+                    if (!baseUrl) setBaseUrl("http://host.docker.internal:11434");
+                  }
+                }}
+              >
+                <option value="gemini">Google Gemini API</option>
+                <option value="ollama">Ollama (Local / Homelab LAN)</option>
+                <option value="openai_compatible">OpenAI-Compatible</option>
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor={modelId}>Modelo</label>
+              <input
+                id={modelId}
+                type="text"
+                list="gemini-models-list"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                required
+              />
+              <datalist id="gemini-models-list">
+                {GEMINI_MODELS.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            </div>
+
+            {provider !== "gemini" && (
+              <div className="field">
+                <label htmlFor={baseUrlId}>URL do Servidor</label>
+                <input
+                  id={baseUrlId}
+                  type="url"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="http://host.docker.internal:11434"
+                />
+              </div>
+            )}
+
+            {provider !== "ollama" && (
+              <div className="field">
+                <label htmlFor={apiKeyId}>
+                  API Key{" "}
+                  {aiConfig?.hasApiKey
+                    ? `(ativa: ${aiConfig.apiKeyPreview} via ${aiConfig.apiKeySource})`
+                    : "(não configurada)"}
+                </label>
+                <div className="inline-edit-row">
+                  <input
+                    id={apiKeyId}
+                    type={showKey ? "text" : "password"}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder="Cole nova API key para atualizar..."
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button compact-button"
+                    aria-pressed={showKey}
+                    onClick={() => setShowKey((prev) => !prev)}
+                  >
+                    {showKey ? "Ocultar" : "Mostrar"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="toolbar-actions">
+            <button type="submit" className="primary-button">
+              Salvar configuração local
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={testingAI}
+              onClick={() => void handleTestAI()}
+            >
+              {testingAI ? "Testando..." : "Testar conexão IA"}
+            </button>
+          </div>
+        </form>
+
+        {aiFeedback && (
+          <p className="status-inline" role="status" aria-live="polite">
+            {aiFeedback}
+          </p>
+        )}
+      </section>
+
+      <section className="card section-card">
+        <h2>Privacidade Zero-Knowledge & Backup Portável (Railway ↔ Homelab)</h2>
         {loading && !status ? (
           <p className="category">Consultando status do Edge Local...</p>
         ) : status ? (
@@ -135,9 +360,27 @@ export function SettingsPage() {
               <small>Registros opacos ativos</small>
             </article>
           </div>
-        ) : (
-          <p className="category">
-            Edge API indisponível neste contexto (rode via Edge Local para ver o status ao vivo).
+        ) : null}
+
+        <div className="toolbar-actions" style={{ marginBlockStart: "16px" }}>
+          <button type="button" className="secondary-button" onClick={() => void handleExportSnapshot()}>
+            Exportar Backup Cifrado (.json)
+          </button>
+          <label className="secondary-button" htmlFor={importBackupId} style={{ display: "inline-flex", alignItems: "center" }}>
+            Importar Backup Cifrado
+            <input
+              id={importBackupId}
+              className="visually-hidden"
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImportSnapshot}
+            />
+          </label>
+        </div>
+
+        {backupFeedback && (
+          <p className="status-inline" role="status" aria-live="polite">
+            {backupFeedback}
           </p>
         )}
       </section>
@@ -193,7 +436,7 @@ export function SettingsPage() {
           </div>
         )}
 
-        {samples.length > 0 ? (
+        {samples.length > 0 && (
           <div className="stack-md">
             {samples.map((item) => (
               <div key={item.id} className="audit-grid">
@@ -208,11 +451,6 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
-        ) : (
-          <p className="category">
-            Nenhum envelope gravado ainda. Clique em &ldquo;Testar gravação cifrada&rdquo; acima
-            para validar ponta a ponta.
-          </p>
         )}
       </section>
     </div>

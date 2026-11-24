@@ -60,6 +60,7 @@ export function ConferencePage({
   const [isLoading, setIsLoading] = useState(false);
   const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
   const [savingMonth, setSavingMonth] = useState(false);
+  const [suggestingAI, setSuggestingAI] = useState(false);
 
   // Manual entry quick form
   const [manualDesc, setManualDesc] = useState("");
@@ -253,6 +254,64 @@ export function ConferencePage({
 
   function updateAllScopes(scope: TransactionScope) {
     setTransactions((prev) => prev.map((item) => ({ ...item, scope })));
+  }
+
+  async function handleSuggestLabelsWithAI() {
+    const unknown = transactions.filter((tx) => !tx.matchedRuleId);
+    if (unknown.length === 0) {
+      setStatusMessage("Todas as compras já foram reconhecidas por regras salvas.");
+      return;
+    }
+
+    setSuggestingAI(true);
+    setStatusMessage("Consultando IA local para sugerir apelidos e categorias...");
+    try {
+      const res = await fetch("/api/ai/suggest-labels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: unknown.map((tx) => ({
+            id: tx.id,
+            description: tx.rawDescription,
+            amount: tx.amount,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatusMessage(data.error || "Configure sua chave de IA na aba Configurações.");
+        return;
+      }
+
+      const byId = new Map<
+        string,
+        { friendlyName: string; category: string; defaultScope: TransactionScope }
+      >();
+      for (const s of data.suggestions || []) {
+        byId.set(s.id, s);
+      }
+
+      setTransactions((prev) =>
+        prev.map((tx) => {
+          const suggestion = byId.get(tx.id);
+          if (!suggestion) return tx;
+          return {
+            ...tx,
+            friendlyName: suggestion.friendlyName || tx.friendlyName,
+            category: suggestion.category || tx.category,
+            scope: suggestion.defaultScope || tx.scope,
+          };
+        })
+      );
+
+      setStatusMessage(
+        `IA sugeriu labels para ${byId.size} compra(s). Revise e clique em "Lembrar regra" nas que quiser memorizar.`
+      );
+    } catch {
+      setStatusMessage("Erro ao consultar sugestões de IA.");
+    } finally {
+      setSuggestingAI(false);
+    }
   }
 
   async function handleRememberRule(tx: Transaction) {
@@ -617,6 +676,16 @@ export function ConferencePage({
                 Novas ({unmatchedCount})
               </button>
             </div>
+            {unmatchedCount > 0 && (
+              <button
+                type="button"
+                className="primary-button compact-button"
+                disabled={suggestingAI}
+                onClick={() => void handleSuggestLabelsWithAI()}
+              >
+                {suggestingAI ? "Sugerindo..." : "Sugerir labels com IA"}
+              </button>
+            )}
             <button
               type="button"
               className="secondary-button"

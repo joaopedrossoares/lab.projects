@@ -2,19 +2,26 @@ import crypto from "node:crypto";
 import express, { type Express } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import type { AIProviderConfig } from "@financas/shared";
+import type { AIProvider } from "./ai/provider.js";
+import type { LocalConfigStore } from "./localConfigStore.js";
+import { createAIRouter } from "./routes/ai.js";
 import { createClosingsRouter, createCouplePlansRouter } from "./routes/closings.js";
 import { createLabelsRouter } from "./routes/labels.js";
+import { createPlannerRouter } from "./routes/planner.js";
 import { createSafetyRouter } from "./routes/safety.js";
 import type { VaultClient } from "./vaultClient.js";
 
 export interface EdgeAppOptions {
   webDistDir?: string;
   vaultClient?: VaultClient;
+  localConfigStore?: LocalConfigStore;
+  aiProviderFactory?: (config: AIProviderConfig) => AIProvider;
   keySource?: "env" | "local-file" | "generated";
 }
 
 export function createEdgeApp(options: EdgeAppOptions = {}): Express {
-  const { webDistDir, vaultClient, keySource = "env" } = options;
+  const { webDistDir, vaultClient, localConfigStore, aiProviderFactory, keySource = "env" } = options;
   const app = express();
   app.use(express.json({ limit: "5mb" }));
 
@@ -137,6 +144,17 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Express {
     app.use("/api/closings", createClosingsRouter(vaultClient));
     app.use("/api/couple-plans", createCouplePlansRouter(vaultClient));
     app.use("/api/safety", createSafetyRouter(vaultClient));
+    app.use("/api/planner", createPlannerRouter(vaultClient));
+    if (localConfigStore) {
+      app.use(
+        "/api/ai",
+        createAIRouter({
+          vaultClient,
+          localConfigStore,
+          providerFactory: aiProviderFactory,
+        })
+      );
+    }
   }
 
   if (webDistDir && fs.existsSync(webDistDir)) {

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CryptoVault } from "@financas/shared/crypto";
+import { LocalConfigStore } from "./localConfigStore.js";
 import { resolveMasterKey } from "./masterKey.js";
 import { HttpOpaqueTransport, SqliteLocalOpaqueTransport, type OpaqueTransport } from "./opaqueTransport.js";
 import { createEdgeApp } from "./server.js";
@@ -30,10 +31,12 @@ async function start() {
 
   const vaultClient = new VaultClient(vault, transport);
   await vaultClient.init();
+  const localConfigStore = new LocalConfigStore(configDir, vault);
 
   const app = createEdgeApp({
     webDistDir,
     vaultClient,
+    localConfigStore,
     keySource: resolvedKey.source,
   });
 
