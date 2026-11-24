@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./crypto": {
+      "types": "./dist/crypto/vault.d.ts",
+      "import": "./dist/crypto/vault.js"
     }
   },
   "scripts": {

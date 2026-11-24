@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "@financas/shared": "1.0.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "pg": "^8.14.1"
   },
   "devDependencies": {
-    "@types/express": "^5.0.2"
+    "@types/express": "^5.0.2",
+    "@types/pg": "^8.11.13"
   }
 }

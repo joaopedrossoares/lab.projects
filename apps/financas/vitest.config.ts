@@ -4,6 +4,7 @@ import path from "node:path";
 export default defineConfig({
   resolve: {
     alias: {
+      "@financas/shared/crypto": path.resolve(__dirname, "shared/src/crypto/vault.ts"),
       "@financas/shared": path.resolve(__dirname, "shared/src/index.ts"),
     },
   },

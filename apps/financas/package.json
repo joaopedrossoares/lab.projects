@@ -13,7 +13,7 @@
     "dev:web": "npm -w @financas/web run dev",
     "dev:edge": "npm -w @financas/edge run dev",
     "dev:backend": "npm -w @financas/backend run dev",
-    "typecheck": "npm -w @financas/shared run typecheck && npm -w @financas/web run typecheck && npm -w @financas/edge run typecheck && npm -w @financas/backend run typecheck",
+    "typecheck": "npm -w @financas/shared run build && npm -w @financas/web run typecheck && npm -w @financas/edge run typecheck && npm -w @financas/backend run typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "npm -w @financas/shared run build && npm -w @financas/web run build && npm -w @financas/edge run build && npm -w @financas/backend run build",
