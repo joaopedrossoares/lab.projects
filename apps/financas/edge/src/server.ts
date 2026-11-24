@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import express, { type Express } from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { createClosingsRouter, createCouplePlansRouter } from "./routes/closings.js";
 import { createLabelsRouter } from "./routes/labels.js";
 import type { VaultClient } from "./vaultClient.js";
 
@@ -132,6 +133,8 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Express {
 
   if (vaultClient) {
     app.use("/api/labels", createLabelsRouter(vaultClient));
+    app.use("/api/closings", createClosingsRouter(vaultClient));
+    app.use("/api/couple-plans", createCouplePlansRouter(vaultClient));
   }
 
   if (webDistDir && fs.existsSync(webDistDir)) {

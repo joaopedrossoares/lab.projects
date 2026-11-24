@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ParsedBillResult } from "@financas/shared";
 import { ConferencePage } from "./pages/ConferencePage";
+import { HistoryPage } from "./pages/HistoryPage";
 import { LabelsPage } from "./pages/LabelsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
@@ -68,14 +69,25 @@ interface AppProps {
   pdfParser?: (file: File) => Promise<ParsedBillResult>;
 }
 
+function currentYearMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function App({ pdfParser }: AppProps) {
   const [activePage, setActivePage] = useState<PageKey>("conference");
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentYearMonth);
 
   const currentNav = NAV_ITEMS.find((item) => item.key === activePage) ?? NAV_ITEMS[0];
 
   useEffect(() => {
     document.title = `${currentNav.label} | Finanças Casal`;
   }, [currentNav.label]);
+
+  function handleOpenMonthFromHistory(month: string) {
+    setSelectedMonth(month);
+    setActivePage("conference");
+  }
 
   return (
     <>
@@ -113,9 +125,15 @@ export function App({ pdfParser }: AppProps) {
 
       <main className="app-shell">
         {activePage === "conference" ? (
-          <ConferencePage pdfParser={pdfParser} />
+          <ConferencePage
+            month={selectedMonth}
+            onMonthChange={setSelectedMonth}
+            pdfParser={pdfParser}
+          />
         ) : activePage === "labels" ? (
           <LabelsPage />
+        ) : activePage === "history" ? (
+          <HistoryPage onOpenMonth={handleOpenMonthFromHistory} />
         ) : activePage === "settings" ? (
           <SettingsPage />
         ) : (
