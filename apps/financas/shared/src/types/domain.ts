@@ -59,6 +59,8 @@ export interface Transaction {
   section?: BillSection;
   installment?: string;
   matchedRuleId?: string;
+  matchSource?: "label_rule" | "installment_history";
+  matchedFromInstallment?: string;
 }
 
 export interface SafetyIndicators {

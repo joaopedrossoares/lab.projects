@@ -1,5 +1,5 @@
 meta {
-  name: Apply Saved Labels
+  name: Apply Saved Labels & Previous Installments
   type: http
   seq: 3
 }
@@ -12,6 +12,7 @@ post {
 
 body:json {
   {
+    "month": "{{month}}",
     "transactions": [
       {
         "id": "001",
@@ -20,7 +21,8 @@ body:json {
         "normalizedMerchant": "padaria central",
         "category": "",
         "amount": 48.5,
-        "section": "national"
+        "section": "national",
+        "installment": "03/10"
       }
     ]
   }

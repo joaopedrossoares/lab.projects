@@ -125,7 +125,7 @@ export function ConferencePage({
       const res = await fetch("/api/labels/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactions: parsedTxs }),
+        body: JSON.stringify({ month, transactions: parsedTxs }),
       });
       if (res.ok) {
         const data = (await res.json()) as {
@@ -135,6 +135,8 @@ export function ConferencePage({
               scope: TransactionScope;
               mySharePct: number;
               matchedRuleId?: string;
+              matchSource?: "label_rule" | "installment_history";
+              matchedFromInstallment?: string;
             }
           >;
         };
@@ -154,6 +156,8 @@ export function ConferencePage({
           section: tx.section,
           installment: tx.installment,
           matchedRuleId: tx.matchedRuleId,
+          matchSource: tx.matchSource,
+          matchedFromInstallment: tx.matchedFromInstallment,
         }));
       }
     } catch {
@@ -203,12 +207,20 @@ export function ConferencePage({
       if (enriched.length === 0) {
         setStatusMessage("Não encontrei compras nesse PDF. Confira se é uma fatura Itaú em texto.");
       } else {
-        const matchedCount = enriched.filter((tx) => Boolean(tx.matchedRuleId)).length;
-        setStatusMessage(
-          matchedCount > 0
-            ? `${enriched.length} compras importadas (${matchedCount} reconhecidas automaticamente).`
-            : `${enriched.length} compras importadas da fatura.`
-        );
+        const inheritedCount = enriched.filter(
+          (tx) => tx.matchSource === "installment_history"
+        ).length;
+        const ruleCount = enriched.filter((tx) => tx.matchSource === "label_rule").length;
+        const matchedCount = inheritedCount + ruleCount;
+
+        if (matchedCount > 0) {
+          const details: string[] = [];
+          if (inheritedCount > 0) details.push(`${inheritedCount} herdada(s) de parcela anterior`);
+          if (ruleCount > 0) details.push(`${ruleCount} por label salvo`);
+          setStatusMessage(`${enriched.length} compras importadas (${details.join(", ")}).`);
+        } else {
+          setStatusMessage(`${enriched.length} compras importadas da fatura.`);
+        }
       }
     } catch {
       setStatusMessage("Não foi possível ler o PDF selecionado.");
@@ -256,8 +268,12 @@ export function ConferencePage({
     setTransactions((prev) => prev.map((item) => ({ ...item, scope })));
   }
 
+  function isTxRecognized(tx: Transaction): boolean {
+    return Boolean(tx.matchedRuleId || tx.matchSource);
+  }
+
   async function handleSuggestLabelsWithAI() {
-    const unknown = transactions.filter((tx) => !tx.matchedRuleId);
+    const unknown = transactions.filter((tx) => !isTxRecognized(tx));
     if (unknown.length === 0) {
       setStatusMessage("Todas as compras já foram reconhecidas por regras salvas.");
       return;
@@ -423,8 +439,8 @@ export function ConferencePage({
     const term = filter.trim().toLowerCase();
 
     return transactions.filter((item) => {
-      if (reviewFilter === "matched" && !item.matchedRuleId) return false;
-      if (reviewFilter === "unmatched" && item.matchedRuleId) return false;
+      if (reviewFilter === "matched" && !isTxRecognized(item)) return false;
+      if (reviewFilter === "unmatched" && isTxRecognized(item)) return false;
       if (!term) return true;
 
       return `${item.date} ${item.friendlyName} ${item.rawDescription} ${item.normalizedMerchant} ${item.category}`
@@ -460,7 +476,7 @@ export function ConferencePage({
   );
 
   const unmatchedCount = useMemo(
-    () => transactions.filter((tx) => !tx.matchedRuleId).length,
+    () => transactions.filter((tx) => !isTxRecognized(tx)).length,
     [transactions]
   );
 
@@ -725,8 +741,14 @@ export function ConferencePage({
                     <span className="pill">
                       {tx.paidBy === "partner" ? "Pago por ela" : "Pago por mim"}
                     </span>
-                    {tx.matchedRuleId && (
-                      <span className="pill pill-success">Reconhecido automaticamente</span>
+                    {tx.matchSource === "installment_history" ? (
+                      <span className="pill pill-success">
+                        Herdado da parcela {tx.matchedFromInstallment || "anterior"}
+                      </span>
+                    ) : (
+                      tx.matchedRuleId && (
+                        <span className="pill pill-success">Reconhecido automaticamente</span>
+                      )
                     )}
                     {tx.installment && (
                       <span className="pill pill-accent">Parcela {tx.installment}</span>
