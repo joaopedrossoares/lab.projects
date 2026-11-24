@@ -4,6 +4,8 @@ networks:
 
 volumes:
   financas-pgdata:
+  financas-local-config:
+  financas-data:
 
 services:
   # -----------------------------------------------------------
@@ -90,8 +92,8 @@ services:
         - SYNC_API_TOKEN=${FINANCAS_SYNC_TOKEN:-}
         - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       volumes:
-        - ./apps/financas/local-config:/app/local-config
-        - ./apps/financas/data:/app/data
+        - financas-local-config:/app/local-config
+        - financas-data:/app/data
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.financas.rule=Host(`financas.${LAB_DOMAIN:-traefik.me}`) || Host(`fatura.${LAB_DOMAIN:-traefik.me}`)"
