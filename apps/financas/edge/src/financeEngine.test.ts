@@ -143,6 +143,55 @@ describe("financeEngine — calculateSafetyOverview & simulatePurchaseImpact", (
     );
     expect(simInst.verdict).toBe("installments");
     expect(simInst.monthlyInstallmentImpact).toBe(1800);
+    // 18000 - 5000 (free margin) = 13000 drawdown if paid in cash
+    expect(simInst.reserveDrawdown).toBe(13000);
+  });
+
+  it("does not subtract from emergency reserve when cash purchase fits inside monthly free margin, and reports reserveGapToTarget", () => {
+    const overview = calculateSafetyOverview({
+      recurring: [
+        {
+          id: "inc-1",
+          direction: "income",
+          title: "Salário",
+          expectedAmount: 10000,
+          paidBy: "me",
+          scope: "individual",
+          mySharePct: 100,
+          active: true,
+          updatedAt: now,
+        },
+        {
+          id: "exp-1",
+          direction: "expense",
+          title: "Aluguel",
+          expectedAmount: 3000,
+          paidBy: "me",
+          scope: "individual",
+          mySharePct: 100,
+          active: true,
+          updatedAt: now,
+        },
+      ],
+      reserve: { ...DEFAULT_RESERVE_STATE, liquidEmergencyReserve: 6000 }, // 2 months runway (< 6m target)
+      profile: { ...DEFAULT_USER_PROFILE, targetRunwayMonths: 6, targetSavingsRatePct: 20 },
+      closings: [],
+      futureInstallments: [],
+    });
+
+    // Safe free margin = 10000 - 3000 - 2000 = 5000. Item = 2000 fits inside margin!
+    const sim = simulatePurchaseImpact(
+      overview,
+      { ...DEFAULT_RESERVE_STATE, liquidEmergencyReserve: 6000 },
+      DEFAULT_USER_PROFILE,
+      { title: "Mini PC", price: 2000, installments: 1, scope: "individual" }
+    );
+
+    expect(sim.reserveDrawdown).toBe(0);
+    expect(sim.cashPaymentRunwayMonths).toBe(2); // Reserve intact!
+    expect(sim.reserveGapToTarget).toBe(12000); // 6*3000 - 6000 = 12000
+    expect(sim.verdict).toBe("save_first");
+    expect(sim.reasons.join(" ")).toContain("12000.00");
   });
 
   it("handles zero income and zero reserve gracefully without NaN", () => {

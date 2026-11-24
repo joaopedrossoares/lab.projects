@@ -49,6 +49,7 @@ export function ConferencePage({
   pdfParser = readAndParseItauPdf,
 }: ConferencePageProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [missingFixedExpenses, setMissingFixedExpenses] = useState<Transaction[]>([]);
   const [futureInstallments, setFutureInstallments] = useState<FutureInstallment[]>([]);
   const [closing, setClosing] = useState<MonthlyClosing | null>(null);
   const [couplePlans, setCouplePlans] = useState<CouplePlanNote[]>([]);
@@ -94,14 +95,22 @@ export function ConferencePage({
         transactions: Transaction[];
         futureInstallments: FutureInstallment[];
         couplePlans: CouplePlanNote[];
+        preloadedFixedCount?: number;
+        missingRecurringExpenses?: Transaction[];
       };
       setClosing(data.closing);
       setTransactions(data.transactions || []);
+      setMissingFixedExpenses(data.missingRecurringExpenses || []);
       setFutureInstallments(data.futureInstallments || []);
       setCouplePlans(data.couplePlans || []);
       setCoupleSavedInput(data.closing?.coupleSavedThisMonth ?? 0);
       setCheckinNotesInput(data.closing?.coupleCheckinNotes ?? "");
-      if ((data.transactions || []).length > 0) {
+      if ((data.preloadedFixedCount || 0) > 0) {
+        setFileName(`Contas fixas (${targetMonth})`);
+        setStatusMessage(
+          `${data.preloadedFixedCount} conta(s) fixa(s) recorrente(s) pré-carregada(s) automaticamente para ${targetMonth}. Você pode ajustar valores variáveis (como luz/água) antes de salvar.`
+        );
+      } else if ((data.transactions || []).length > 0) {
         setFileName(`Salvo (${targetMonth})`);
         setStatusMessage("");
       } else {
@@ -262,6 +271,19 @@ export function ConferencePage({
 
   function removeTx(id: string) {
     setTransactions((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function handleImportMissingFixed() {
+    if (missingFixedExpenses.length === 0) return;
+    setTransactions((prev) => {
+      const existing = new Set(prev.map((t) => t.id));
+      const toAdd = missingFixedExpenses.filter((item) => !existing.has(item.id));
+      return [...toAdd, ...prev];
+    });
+    setStatusMessage(
+      `${missingFixedExpenses.length} conta(s) fixa(s) importada(s) para ${month}. Ajuste valores variáveis se precisar e salve.`
+    );
+    setMissingFixedExpenses([]);
   }
 
   function updateAllScopes(scope: TransactionScope) {
@@ -510,6 +532,15 @@ export function ConferencePage({
             </div>
 
             <div className="toolbar-actions">
+              {missingFixedExpenses.length > 0 && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleImportMissingFixed}
+                >
+                  Importar contas fixas (+{missingFixedExpenses.length})
+                </button>
+              )}
               <button
                 type="button"
                 className="secondary-button"
@@ -738,9 +769,26 @@ export function ConferencePage({
                 <div className="transaction-main">
                   <div className="transaction-meta">
                     <span className="pill">{tx.date}</span>
-                    <span className="pill">
-                      {tx.paidBy === "partner" ? "Pago por ela" : "Pago por mim"}
-                    </span>
+                    {tx.source === "fixed_copy" && (
+                      <span className="pill pill-accent">Conta fixa</span>
+                    )}
+                    {tx.source === "fixed_copy" || tx.source === "manual" ? (
+                      <button
+                        type="button"
+                        className="pill pill-button"
+                        onClick={() =>
+                          updateTx(tx.id, {
+                            paidBy: tx.paidBy === "partner" ? "me" : "partner",
+                          })
+                        }
+                      >
+                        {tx.paidBy === "partner" ? "Pago por ela (trocar)" : "Pago por mim (trocar)"}
+                      </button>
+                    ) : (
+                      <span className="pill">
+                        {tx.paidBy === "partner" ? "Pago por ela" : "Pago por mim"}
+                      </span>
+                    )}
                     {tx.matchSource === "installment_history" ? (
                       <span className="pill pill-success">
                         Herdado da parcela {tx.matchedFromInstallment || "anterior"}
@@ -779,7 +827,17 @@ export function ConferencePage({
                 </div>
 
                 <div className="transaction-side">
-                  <strong className="amount">{formatBRL(tx.amount)}</strong>
+                  {tx.source === "fixed_copy" || tx.source === "manual" ? (
+                    <div className="inline-amount-edit">
+                      <CurrencyInput
+                        ariaLabel={`Valor de ${tx.friendlyName}`}
+                        value={tx.amount}
+                        onChange={(val) => updateTx(tx.id, { amount: val })}
+                      />
+                    </div>
+                  ) : (
+                    <strong className="amount">{formatBRL(tx.amount)}</strong>
+                  )}
 
                   <div className="side-controls">
                     <div

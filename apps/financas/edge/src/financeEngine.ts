@@ -56,6 +56,8 @@ export interface PurchaseSimulationInput {
 export interface PurchaseSimulationResult {
   myTotalCost: number;
   monthlyInstallmentImpact: number;
+  reserveDrawdown: number;
+  reserveGapToTarget: number;
   cashPaymentRunwayMonths: number;
   installmentCommitmentPct: number;
   remainingSafeMarginAfterInstallment: number;
@@ -275,8 +277,17 @@ export function simulatePurchaseImpact(
   const monthlyInstallmentImpact = round2(myTotalCost / installments);
 
   const essential = overview.indicators.monthlyEssentialCost;
-  const reserveAfterCash = Math.max(0, (reserve.liquidEmergencyReserve || 0) - myTotalCost);
+  const liquidReserve = Math.max(0, reserve.liquidEmergencyReserve || 0);
+  const safeFreeMargin = overview.indicators.safeFreeMargin;
+
+  // Paying cash uses this month's free margin first; only the excess touches the emergency reserve
+  const reserveDrawdown = round2(Math.max(0, myTotalCost - Math.max(0, safeFreeMargin)));
+  const reserveAfterCash = Math.max(0, liquidReserve - reserveDrawdown);
   const cashPaymentRunwayMonths = essential > 0 ? round2(reserveAfterCash / essential) : 0;
+
+  const targetRunway = Math.max(1, profile.targetRunwayMonths || 6);
+  const maxCommit = Math.min(95, Math.max(10, profile.maxCommitmentPct || 60));
+  const reserveGapToTarget = round2(Math.max(0, targetRunway * essential - liquidReserve));
 
   const income = overview.breakdown.monthlyIncome;
   const newCommitted =
@@ -285,45 +296,51 @@ export function simulatePurchaseImpact(
     monthlyInstallmentImpact;
   const installmentCommitmentPct = income > 0 ? round2((newCommitted / income) * 100) : 100;
 
-  const remainingSafeMarginAfterInstallment = round2(
-    overview.indicators.safeFreeMargin - monthlyInstallmentImpact
-  );
+  const remainingSafeMarginAfterInstallment = round2(safeFreeMargin - monthlyInstallmentImpact);
 
   const monthsToSaveComfortably =
-    overview.indicators.safeFreeMargin > 0
-      ? Math.max(1, Math.ceil(myTotalCost / overview.indicators.safeFreeMargin))
-      : 99;
+    safeFreeMargin > 0 ? Math.max(1, Math.ceil(myTotalCost / safeFreeMargin)) : 99;
 
-  const targetRunway = Math.max(1, profile.targetRunwayMonths || 6);
-  const maxCommit = Math.min(95, Math.max(10, profile.maxCommitmentPct || 60));
   const reasons: string[] = [];
-
   let verdict: PurchaseSimulationResult["verdict"];
 
-  if (
-    myTotalCost <= overview.indicators.safeFreeMargin &&
-    cashPaymentRunwayMonths >= targetRunway
-  ) {
+  if (myTotalCost <= safeFreeMargin && cashPaymentRunwayMonths >= targetRunway) {
     verdict = "buy_now";
-    reasons.push("Cabe integralmente na sua margem segura deste mês sem afetar sua reserva.");
+    reasons.push(
+      "Cabe integralmente na sua margem segura deste mês sem tocar na reserva de emergência, que já atinge sua meta."
+    );
   } else if (
     installments > 1 &&
     remainingSafeMarginAfterInstallment >= 0 &&
     installmentCommitmentPct <= maxCommit &&
-    overview.indicators.runwayMonths >= targetRunway * 0.75
+    overview.indicators.runwayMonths >= targetRunway * 0.5
   ) {
     verdict = "installments";
     reasons.push(
-      `A parcela de R$ ${monthlyInstallmentImpact.toFixed(2)} cabe na margem segura e mantém o comprometimento em ${installmentCommitmentPct}% (limite ${maxCommit}%).`
+      `A parcela de R$ ${monthlyInstallmentImpact.toFixed(2)} cabe na margem segura e mantém o comprometimento em ${installmentCommitmentPct}% (limite ${maxCommit}%), mantendo sua reserva intacta.`
     );
-  } else if (overview.indicators.safeFreeMargin > 0 && monthsToSaveComfortably <= 12) {
+    if (reserveGapToTarget > 0) {
+      reasons.push(
+        `Atenção: sua reserva atual está em ${overview.indicators.runwayMonths} meses (faltam R$ ${reserveGapToTarget.toFixed(2)} para completar a meta de ${targetRunway} meses).`
+      );
+    }
+  } else if (safeFreeMargin > 0 && monthsToSaveComfortably <= 12) {
     verdict = "save_first";
-    reasons.push(
-      `Comprando à vista agora seu runway cairia para ${cashPaymentRunwayMonths} meses (meta ${targetRunway} meses).`
-    );
-    reasons.push(
-      `Guardando sua margem livre, você junta o valor em ~${monthsToSaveComfortably} mês(es) sem risco.`
-    );
+    if (myTotalCost <= safeFreeMargin && reserveGapToTarget > 0) {
+      reasons.push(
+        `O item (R$ ${myTotalCost.toFixed(2)}) cabe na sua margem livre deste mês sem mexer na reserva, mas sua reserva de emergência está em ${overview.indicators.runwayMonths} meses (meta: ${targetRunway} meses).`
+      );
+      reasons.push(
+        `Faltam R$ ${reserveGapToTarget.toFixed(2)} para completar sua meta de reserva — vale reforçar a reserva antes (ou separar parte da sobra mensal para a reserva e parte para esta compra).`
+      );
+    } else {
+      reasons.push(
+        `Para pagar à vista hoje você precisaria tirar R$ ${reserveDrawdown.toFixed(2)} da reserva de emergência, derrubando seu runway para ${cashPaymentRunwayMonths} meses (meta ${targetRunway} meses).`
+      );
+      reasons.push(
+        `Juntando sua margem livre (R$ ${safeFreeMargin.toFixed(2)}/mês), você acumula o valor total (R$ ${myTotalCost.toFixed(2)}) em ~${monthsToSaveComfortably} mês(es) sem tocar na reserva.`
+      );
+    }
   } else {
     verdict = "wait";
     reasons.push(
@@ -334,6 +351,8 @@ export function simulatePurchaseImpact(
   return {
     myTotalCost,
     monthlyInstallmentImpact,
+    reserveDrawdown,
+    reserveGapToTarget,
     cashPaymentRunwayMonths,
     installmentCommitmentPct,
     remainingSafeMarginAfterInstallment,

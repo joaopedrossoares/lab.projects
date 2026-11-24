@@ -11,6 +11,8 @@ import { formatBRL } from "../lib/format";
 interface SimulationOutput {
   myTotalCost: number;
   monthlyInstallmentImpact: number;
+  reserveDrawdown: number;
+  reserveGapToTarget: number;
   cashPaymentRunwayMonths: number;
   installmentCommitmentPct: number;
   remainingSafeMarginAfterInstallment: number;
@@ -458,10 +460,17 @@ export function PlannerPage() {
           </div>
           <p className="category">
             Meu custo total: <strong>{formatBRL(simulation.myTotalCost)}</strong> • Parcela mensal:{" "}
-            <strong>{formatBRL(simulation.monthlyInstallmentImpact)}</strong> • Runway se à vista:{" "}
+            <strong>{formatBRL(simulation.monthlyInstallmentImpact)}</strong> • Uso da reserva se à
+            vista: <strong>{formatBRL(simulation.reserveDrawdown)}</strong> • Runway se à vista:{" "}
             <strong>{simulation.cashPaymentRunwayMonths.toFixed(1)} meses</strong> • Comprometimento
-            se parcelado: <strong>{simulation.installmentCommitmentPct.toFixed(0)}%</strong> • Tempo
-            para juntar sem aperto: <strong>{simulation.monthsToSaveComfortably} mês(es)</strong>
+            se parcelado: <strong>{simulation.installmentCommitmentPct.toFixed(0)}%</strong>
+            {simulation.reserveGapToTarget > 0 ? (
+              <>
+                {" "}
+                • Falta p/ meta de reserva:{" "}
+                <strong>{formatBRL(simulation.reserveGapToTarget)}</strong>
+              </>
+            ) : null}
           </p>
           <ul>
             {simulation.reasons.map((r, i) => (

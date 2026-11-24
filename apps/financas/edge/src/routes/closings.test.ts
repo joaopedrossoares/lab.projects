@@ -107,4 +107,87 @@ describe("Monthly Closings & Couple Plans API (Fase 3)", () => {
     expect(rawDump).not.toContain("1800");
     expect(rawDump).not.toContain("CONDOMINIO");
   });
+
+  it("auto-preloads recurring fixed expenses (rent, internet) on a fresh month and offers missing ones on existing months", async () => {
+    const app = createEdgeApp({ vaultClient: client });
+
+    // Register recurring rent & internet once in cashflow
+    await injectExpress(app, {
+      method: "POST",
+      url: "/api/safety/cashflow",
+      body: {
+        direction: "expense",
+        title: "Aluguel Apartamento",
+        expectedAmount: 2800,
+        scope: "couple",
+        paidBy: "me",
+        mySharePct: 50,
+      },
+    });
+    await injectExpress(app, {
+      method: "POST",
+      url: "/api/safety/cashflow",
+      body: {
+        direction: "expense",
+        title: "Internet Fibra",
+        expectedAmount: 140,
+        scope: "couple",
+        paidBy: "partner",
+        mySharePct: 50,
+      },
+    });
+
+    // Opening a brand-new month (2026-12) preloads both fixed expenses automatically!
+    const freshRes = await injectExpress<{
+      transactions: Array<{ source: string; friendlyName: string; amount: number }>;
+      preloadedFixedCount: number;
+      settlement: { netSettlementAmount: number };
+    }>(app, {
+      url: "/api/closings/2026-12",
+    });
+
+    expect(freshRes.status).toBe(200);
+    expect(freshRes.body.preloadedFixedCount).toBe(2);
+    expect(freshRes.body.transactions).toHaveLength(2);
+    expect(freshRes.body.transactions[0].source).toBe("fixed_copy");
+    // I paid 2800 (+1400), she paid 140 (-70) => net +1330
+    expect(freshRes.body.settlement.netSettlementAmount).toBe(1330);
+
+    // On a month that already has saved transactions without fixed copies, returns missingRecurringExpenses without touching saved data
+    await injectExpress(app, {
+      method: "POST",
+      url: "/api/closings/2026-11/close",
+      body: {
+        status: "draft",
+        transactions: [
+          {
+            id: "existing-card-tx",
+            month: "2026-11",
+            source: "pdf_itau",
+            paidBy: "me",
+            date: "05/11",
+            rawDescription: "MERCADO",
+            normalizedMerchant: "mercado",
+            friendlyName: "Mercado",
+            category: "Mercado",
+            amount: 300,
+            scope: "couple",
+            mySharePct: 50,
+          },
+        ],
+      },
+    });
+
+    const existingRes = await injectExpress<{
+      transactions: Array<{ id: string }>;
+      missingRecurringExpenses: Array<{ friendlyName: string }>;
+    }>(app, {
+      url: "/api/closings/2026-11",
+    });
+
+    expect(existingRes.status).toBe(200);
+    expect(existingRes.body.transactions).toHaveLength(1);
+    expect(existingRes.body.transactions[0].id).toBe("existing-card-tx");
+    expect(existingRes.body.missingRecurringExpenses).toHaveLength(2);
+  });
 });

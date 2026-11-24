@@ -1,10 +1,12 @@
 import crypto from "node:crypto";
 import { Router } from "express";
-import type {
-  CouplePlanNote,
-  FutureInstallment,
-  MonthlyClosing,
-  Transaction,
+import {
+  normalizeMerchantKey,
+  type CouplePlanNote,
+  type FutureInstallment,
+  type MonthlyClosing,
+  type RecurringCashflow,
+  type Transaction,
 } from "@financas/shared";
 import { calculateCoupleSettlement } from "../financeEngine.js";
 import type { VaultClient } from "../vaultClient.js";
@@ -14,6 +16,29 @@ const MONTH_REGEX = /^\d{4}-\d{2}$/;
 
 function closingRecordId(month: string): string {
   return `closing-${month}`;
+}
+
+function buildRecurringExpenseTransactions(
+  month: string,
+  recurring: RecurringCashflow[]
+): Transaction[] {
+  const displayDate = `01/${month.slice(5, 7)}`;
+  return recurring
+    .filter((item) => item.active && item.direction === "expense")
+    .map((item) => ({
+      id: `fixed-${month}-${item.id}`,
+      month,
+      source: "fixed_copy" as const,
+      paidBy: item.paidBy,
+      date: displayDate,
+      rawDescription: item.title,
+      normalizedMerchant: normalizeMerchantKey(item.title),
+      friendlyName: item.title,
+      category: "Casa & Contas",
+      amount: item.expectedAmount,
+      scope: item.scope,
+      mySharePct: item.scope === "couple" ? item.mySharePct : 100,
+    }));
 }
 
 export function createClosingsRouter(vaultClient: VaultClient): Router {
@@ -39,14 +64,26 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
     }
 
     try {
-      const [closing, transactions, futureInstallments, couplePlans] = await Promise.all([
-        vaultClient.getEntity<MonthlyClosing>(closingRecordId(month)),
-        vaultClient.listEntities<Transaction>("tx", { periodKey: month }),
-        vaultClient.listEntities<FutureInstallment>("future_installment", { periodKey: month }),
-        vaultClient.listEntities<CouplePlanNote>("couple_plan"),
-      ]);
+      const [closing, savedTransactions, futureInstallments, couplePlans, recurring] =
+        await Promise.all([
+          vaultClient.getEntity<MonthlyClosing>(closingRecordId(month)),
+          vaultClient.listEntities<Transaction>("tx", { periodKey: month }),
+          vaultClient.listEntities<FutureInstallment>("future_installment", { periodKey: month }),
+          vaultClient.listEntities<CouplePlanNote>("couple_plan"),
+          vaultClient.listEntities<RecurringCashflow>("cashflow"),
+        ]);
 
+      const recurringTxs = buildRecurringExpenseTransactions(month, recurring);
+      const isFreshMonth = !closing && savedTransactions.length === 0;
+
+      const transactions = isFreshMonth ? [...recurringTxs] : [...savedTransactions];
       transactions.sort((a, b) => a.date.localeCompare(b.date));
+
+      const existingIds = new Set(transactions.map((t) => t.id));
+      const missingRecurringExpenses = isFreshMonth
+        ? []
+        : recurringTxs.filter((item) => !existingIds.has(item.id));
+
       const settlement = calculateCoupleSettlement(transactions);
 
       res.json({
@@ -56,6 +93,8 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
         futureInstallments,
         couplePlans: couplePlans.filter((p) => !p.id.startsWith("audit-test-")),
         settlement,
+        preloadedFixedCount: isFreshMonth ? recurringTxs.length : 0,
+        missingRecurringExpenses,
       });
     } catch (err) {
       res.status(502).json({

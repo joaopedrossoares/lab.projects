@@ -371,6 +371,27 @@ h1 {
   color: var(--text);
 }
 
+.pill-button {
+  border: 1px solid #d9b5af;
+  cursor: pointer;
+}
+
+.pill-button:hover {
+  background: var(--color3);
+}
+
+.inline-amount-edit input {
+  width: 150px;
+  min-block-size: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #cfa59f;
+  background: var(--color5);
+  color: var(--text);
+  font-weight: 800;
+  text-align: end;
+}
+
 .pill-success {
   background: #d7f2df;
   color: #1c5730;
