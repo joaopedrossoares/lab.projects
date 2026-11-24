@@ -371,6 +371,125 @@ h1 {
   color: var(--text);
 }
 
+.pill-success {
+  background: #d7f2df;
+  color: #1c5730;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: end;
+  margin-block-start: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 180px;
+}
+
+.field-compact {
+  flex: 0 1 120px;
+}
+
+.field label {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  min-block-size: 46px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #cfa59f;
+  background: var(--color5);
+  color: var(--text);
+}
+
+.inline-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 8px 6px;
+}
+
+.inline-edit-row input {
+  min-block-size: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #d9b5af;
+  background: var(--color5);
+  color: var(--text);
+}
+
+.tx-title-input {
+  flex: 2 1 220px;
+  font-weight: 700;
+}
+
+.tx-category-input {
+  flex: 1 1 150px;
+}
+
+.side-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.share-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color4);
+  border: 1px solid var(--color3);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.share-pill input {
+  width: 58px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid #cfa59f;
+  background: var(--color5);
+  text-align: center;
+}
+
+.compact-button {
+  min-block-size: 40px;
+  padding-inline: 12px;
+  font-size: 0.85rem;
+}
+
+.danger-button {
+  min-block-size: 44px;
+  padding-inline: 14px;
+  border-radius: var(--radius-sm);
+  background: #fde2e2;
+  color: #8c1d18;
+  font-weight: 800;
+}
+
+.status-inline {
+  margin-block-start: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color4);
+  color: var(--text);
+  font-weight: 600;
+}
+
 .category {
   margin: 0;
   color: var(--muted);

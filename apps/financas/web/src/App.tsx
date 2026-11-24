@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ParsedBillResult } from "@financas/shared";
 import { ConferencePage } from "./pages/ConferencePage";
+import { LabelsPage } from "./pages/LabelsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 type PageKey = "conference" | "labels" | "safety" | "planner" | "history" | "settings";
@@ -113,6 +114,8 @@ export function App({ pdfParser }: AppProps) {
       <main className="app-shell">
         {activePage === "conference" ? (
           <ConferencePage pdfParser={pdfParser} />
+        ) : activePage === "labels" ? (
+          <LabelsPage />
         ) : activePage === "settings" ? (
           <SettingsPage />
         ) : (

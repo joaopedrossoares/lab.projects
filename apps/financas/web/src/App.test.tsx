@@ -57,8 +57,13 @@ describe("Finanças Web App (Fase 0)", () => {
     fireEvent.change(fileInput, { target: { files: [pdfFile] } });
 
     await waitFor(() => {
-      expect(screen.getByText("SUPERMERCADO EXEMPLO")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("SUPERMERCADO EXEMPLO")).toBeInTheDocument();
     });
+
+    // Inline rename works
+    const renameInput = screen.getByDisplayValue("SUPERMERCADO EXEMPLO");
+    fireEvent.change(renameInput, { target: { value: "Supermercado do Mês" } });
+    expect(screen.getByDisplayValue("Supermercado do Mês")).toBeInTheDocument();
 
     expect(screen.getByTestId("items-count")).toHaveTextContent("2");
     expect(screen.getByTestId("future-total").textContent).toContain("200,00");
