@@ -8,6 +8,7 @@ import type {
 } from "@financas/shared";
 import { calculateCoupleSettlement } from "../financeEngine.js";
 import type { VaultClient } from "../vaultClient.js";
+import { loadFullSafetyContext } from "./safety.js";
 
 const MONTH_REGEX = /^\d{4}-\d{2}$/;
 
@@ -205,6 +206,7 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
 
       const settlement = calculateCoupleSettlement(transactions);
       const existing = await vaultClient.getEntity<MonthlyClosing>(closingRecordId(month));
+      const safetyCtx = await loadFullSafetyContext(vaultClient);
       const now = new Date().toISOString();
       const status = body.status === "draft" ? "draft" : "closed";
 
@@ -215,7 +217,7 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
         totalIncome:
           typeof body.totalIncome === "number" && Number.isFinite(body.totalIncome)
             ? body.totalIncome
-            : existing?.totalIncome ?? 0,
+            : existing?.totalIncome || safetyCtx.overview.breakdown.monthlyIncome,
         totalMyExpenses: settlement.totalMyExpenses,
         totalCoupleExpenses: settlement.totalCouple,
         netSettlementAmount: settlement.netSettlementAmount,
@@ -228,7 +230,7 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
           typeof body.coupleCheckinNotes === "string"
             ? body.coupleCheckinNotes.trim()
             : existing?.coupleCheckinNotes ?? "",
-        safetySnapshot: existing?.safetySnapshot,
+        safetySnapshot: safetyCtx.overview.indicators,
         closedAt: status === "closed" ? now : existing?.closedAt,
         updatedAt: now,
       };

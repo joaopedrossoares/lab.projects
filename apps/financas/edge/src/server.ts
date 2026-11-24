@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createClosingsRouter, createCouplePlansRouter } from "./routes/closings.js";
 import { createLabelsRouter } from "./routes/labels.js";
+import { createSafetyRouter } from "./routes/safety.js";
 import type { VaultClient } from "./vaultClient.js";
 
 export interface EdgeAppOptions {
@@ -135,6 +136,7 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Express {
     app.use("/api/labels", createLabelsRouter(vaultClient));
     app.use("/api/closings", createClosingsRouter(vaultClient));
     app.use("/api/couple-plans", createCouplePlansRouter(vaultClient));
+    app.use("/api/safety", createSafetyRouter(vaultClient));
   }
 
   if (webDistDir && fs.existsSync(webDistDir)) {

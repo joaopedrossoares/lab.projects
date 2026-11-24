@@ -376,6 +376,28 @@ h1 {
   color: #1c5730;
 }
 
+.pill-warn {
+  background: #fff1cc;
+  color: #7c5200;
+}
+
+.pill-danger {
+  background: #fde2e2;
+  color: #8c1d18;
+}
+
+.two-col-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 860px) {
+  .two-col-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .inline-form {
   display: flex;
   flex-wrap: wrap;

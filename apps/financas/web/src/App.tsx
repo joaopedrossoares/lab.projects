@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ParsedBillResult } from "@financas/shared";
+import { CashflowSafetyPage } from "./pages/CashflowSafetyPage";
 import { ConferencePage } from "./pages/ConferencePage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { LabelsPage } from "./pages/LabelsPage";
@@ -132,6 +133,8 @@ export function App({ pdfParser }: AppProps) {
           />
         ) : activePage === "labels" ? (
           <LabelsPage />
+        ) : activePage === "safety" ? (
+          <CashflowSafetyPage />
         ) : activePage === "history" ? (
           <HistoryPage onOpenMonth={handleOpenMonthFromHistory} />
         ) : activePage === "settings" ? (
