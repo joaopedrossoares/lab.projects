@@ -1,0 +1,21 @@
+meta {
+  name: Save Label Rule
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{edgeUrl}}/api/labels
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "rawPattern": "MP *PADARIA CENTRAL 02/10",
+    "friendlyName": "Padaria Central",
+    "category": "Alimentação",
+    "defaultScope": "couple",
+    "mySharePct": 50
+  }
+}

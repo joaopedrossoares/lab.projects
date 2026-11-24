@@ -29,6 +29,7 @@ out/
 
 /apps/lauricas
 *.sh
+!scripts/*.sh
 /apps/chord-finder/cifras_local/*
 /apps/mercado/data/*
 /apps/financas/data/*

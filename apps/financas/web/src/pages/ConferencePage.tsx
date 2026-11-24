@@ -21,7 +21,7 @@ import {
   type TransactionScope,
 } from "@financas/shared";
 import { DEFAULT_CATEGORIES } from "../lib/categories";
-import { formatBRL } from "../lib/format";
+import { formatBRL, parseMoneyInput } from "../lib/format";
 import { readAndParseItauPdf } from "../lib/pdfReader";
 
 type ReviewFilter = "all" | "unmatched" | "matched";
@@ -218,7 +218,7 @@ export function ConferencePage({
 
   function handleAddManualTransaction(event: FormEvent) {
     event.preventDefault();
-    const numeric = Number(manualAmount.replace(",", "."));
+    const numeric = parseMoneyInput(manualAmount);
     if (!manualDesc.trim() || !Number.isFinite(numeric) || numeric <= 0) return;
 
     const tx: Transaction = {
@@ -361,7 +361,7 @@ export function ConferencePage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
-          coupleSavedThisMonth: Number(coupleSavedInput.replace(",", ".")) || 0,
+          coupleSavedThisMonth: parseMoneyInput(coupleSavedInput),
           coupleCheckinNotes: checkinNotesInput,
           transactions,
           futureInstallments,

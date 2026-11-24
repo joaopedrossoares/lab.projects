@@ -1,0 +1,20 @@
+meta {
+  name: Save User Profile & Targets
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{edgeUrl}}/api/safety/profile
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "interestsAndGoalsText": "Montar servidor local (homelab), melhorar ergonomia do setup e manter reserva sólida.",
+    "targetRunwayMonths": 6,
+    "maxCommitmentPct": 60,
+    "targetSavingsRatePct": 20
+  }
+}

@@ -5,7 +5,7 @@ import type {
   SafetyIndicators,
   TransactionScope,
 } from "@financas/shared";
-import { formatBRL } from "../lib/format";
+import { formatBRL, parseMoneyInput } from "../lib/format";
 
 interface SimulationOutput {
   myTotalCost: number;
@@ -121,7 +121,7 @@ export function PlannerPage() {
 
   async function handleAddPurchase(event: FormEvent) {
     event.preventDefault();
-    const numeric = Number(price.replace(",", "."));
+    const numeric = parseMoneyInput(price);
     if (!title.trim() || !Number.isFinite(numeric) || numeric <= 0) return;
 
     const res = await fetch("/api/planner/purchases", {

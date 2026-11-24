@@ -1,0 +1,18 @@
+meta {
+  name: Chat With Planning Assistant
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{edgeUrl}}/api/ai/chat
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "message": "Posso comprar o Mini PC este mês sem comprometer minha reserva nem os planos do casal?",
+    "history": []
+  }
+}

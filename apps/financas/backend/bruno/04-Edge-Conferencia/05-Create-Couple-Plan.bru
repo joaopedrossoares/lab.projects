@@ -1,0 +1,17 @@
+meta {
+  name: Create Couple Plan
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{edgeUrl}}/api/couple-plans
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "text": "Viagem de férias do casal no segundo semestre"
+  }
+}

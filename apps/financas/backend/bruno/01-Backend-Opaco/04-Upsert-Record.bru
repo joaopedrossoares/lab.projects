@@ -1,0 +1,24 @@
+meta {
+  name: Upsert Opaque Record (Test)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{backendUrl}}/api/v1/records/bruno-smoke-test
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{syncApiToken}}
+}
+
+body:json {
+  {
+    "entityType": "couple_plan",
+    "periodKey": null,
+    "blindIndex": "bi_bruno_smoke_test",
+    "encryptedPayload": "v1:AAAAAAAAAAAAAAAA:AAAAAAAAAAAAAAAAAAAAAA:AAAA"
+  }
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Apply Saved Labels
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{edgeUrl}}/api/labels/apply
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "transactions": [
+      {
+        "id": "001",
+        "date": "10/11",
+        "description": "MP *PADARIA CENTRAL 03/10",
+        "normalizedMerchant": "padaria central",
+        "category": "",
+        "amount": 48.5,
+        "section": "national"
+      }
+    ]
+  }
+}

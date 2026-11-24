@@ -1,0 +1,15 @@
+meta {
+  name: Stats
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{backendUrl}}/api/v1/stats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{syncApiToken}}
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Create Planned Purchase
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{edgeUrl}}/api/planner/purchases
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "title": "Mini PC Homelab",
+    "estimatedPrice": 1800,
+    "defaultInstallments": 6,
+    "scope": "individual",
+    "urgency": 4,
+    "desireImpact": 5,
+    "notes": "Para rodar todo o lab.projects na rede local"
+  }
+}

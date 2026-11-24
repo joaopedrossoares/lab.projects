@@ -1,0 +1,21 @@
+meta {
+  name: List Records
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{backendUrl}}/api/v1/records?limit=20
+  body: none
+  auth: bearer
+}
+
+params:query {
+  limit: 20
+  ~entityType: label_rule
+  ~periodKey: {{month}}
+}
+
+auth:bearer {
+  token: {{syncApiToken}}
+}

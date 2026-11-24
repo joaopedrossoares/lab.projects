@@ -1,0 +1,15 @@
+meta {
+  name: Privacy Audit (Local vs Producao)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{edgeUrl}}/api/privacy/audit?limit=5
+  body: none
+  auth: none
+}
+
+params:query {
+  limit: 5
+}

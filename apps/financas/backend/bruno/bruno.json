@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Financas API (Backend + Edge)",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

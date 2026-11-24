@@ -34,12 +34,35 @@ lab.projects/
 └── snippets/                     # Scripts isolados e PoCs (Testes rápidos, TS/JS/HTML)
 ```
 ## 🚀 Como Subir o Ambiente
-Certifique-se de estar na raiz do repositório (lab.projects).
+Certifique-se de estar na raiz do repositório (`lab.projects`).
 
-Suba todos os containers em segundo plano (construindo imagens locais se necessário):
+Use os scripts prontos em `scripts/`:
 
-Bash
+```bash
+# Sobe TODOS os aplicativos (ambiente padrão: prod)
+./scripts/up.sh
+
+# Sobe TODOS os aplicativos rodando 100% localmente
+./scripts/up.sh local
+
+# Sobe apenas o necessário para Finanças (apontando para prod / Railway)
+./scripts/up.sh financas
+
+# Sobe apenas Finanças rodando 100% local (Edge + Backend :3001 + Postgres)
+./scripts/up.sh financas local
+
+# Sobe outro app específico (ex.: mercado)
+./scripts/up.sh mercado
+
+# Parar tudo (ou apenas um app: ./scripts/down.sh financas)
+./scripts/down.sh
+```
+
+Ou diretamente com Docker Compose:
+
+```bash
 docker compose up -d --build
+```
 Acesse os serviços localmente:
 
 | Serviço | Endereço | Observação |

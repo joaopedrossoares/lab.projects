@@ -8,7 +8,7 @@ import type {
   TransactionScope,
   UserProfile,
 } from "@financas/shared";
-import { formatBRL } from "../lib/format";
+import { formatBRL, parseMoneyInput } from "../lib/format";
 
 interface SafetyBreakdown {
   monthlyIncome: number;
@@ -83,7 +83,7 @@ export function CashflowSafetyPage() {
 
   async function handleAddRecurring(event: FormEvent) {
     event.preventDefault();
-    const numeric = Number(expectedAmount.replace(",", "."));
+    const numeric = parseMoneyInput(expectedAmount);
     if (!title.trim() || !Number.isFinite(numeric) || numeric <= 0) return;
 
     const res = await fetch("/api/safety/cashflow", {
@@ -123,9 +123,9 @@ export function CashflowSafetyPage() {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        liquidEmergencyReserve: Number(liquidReserve.replace(",", ".")) || 0,
-        coupleAccumulatedSavings: Number(coupleSavings.replace(",", ".")) || 0,
-        otherInvestments: Number(otherInvestments.replace(",", ".")) || 0,
+        liquidEmergencyReserve: parseMoneyInput(liquidReserve),
+        coupleAccumulatedSavings: parseMoneyInput(coupleSavings),
+        otherInvestments: parseMoneyInput(otherInvestments),
       }),
     });
     if (res.ok) {

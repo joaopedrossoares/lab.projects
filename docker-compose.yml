@@ -110,7 +110,7 @@ services:
       image: postgres:17-alpine
       container_name: financas-postgres
       restart: unless-stopped
-      profiles: ["homelab"]
+      profiles: ["local", "homelab"]
       environment:
         - POSTGRES_DB=financas
         - POSTGRES_USER=financas
@@ -131,7 +131,9 @@ services:
         dockerfile: Dockerfile.backend
       container_name: financas-backend
       restart: unless-stopped
-      profiles: ["homelab"]
+      profiles: ["local", "homelab"]
+      ports:
+        - "3001:3001"
       depends_on:
         financas-postgres:
           condition: service_healthy
@@ -140,6 +142,10 @@ services:
         - DATABASE_URL=postgresql://financas:${FINANCAS_PG_PASSWORD:-financas_local_pass}@financas-postgres:5432/financas
         - DATABASE_SSL=false
         - SYNC_API_TOKEN=${FINANCAS_SYNC_TOKEN:-}
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.financas-api.rule=Host(`financas-api.${LAB_DOMAIN:-traefik.me}`)"
+        - "traefik.http.services.financas-api.loadbalancer.server.port=3001"
       networks:
         - lab-net
 

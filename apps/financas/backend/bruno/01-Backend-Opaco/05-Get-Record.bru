@@ -1,0 +1,15 @@
+meta {
+  name: Get Opaque Record (Test)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{backendUrl}}/api/v1/records/bruno-smoke-test
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{syncApiToken}}
+}

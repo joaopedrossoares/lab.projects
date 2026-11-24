@@ -1,0 +1,35 @@
+meta {
+  name: Close Month (Check-in Casal)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{edgeUrl}}/api/closings/{{month}}/close
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "status": "closed",
+    "coupleSavedThisMonth": 1500,
+    "coupleCheckinNotes": "Mês fechado pelo Bruno",
+    "transactions": [
+      {
+        "id": "bruno-tx-1",
+        "month": "{{month}}",
+        "source": "manual",
+        "paidBy": "me",
+        "date": "10/11",
+        "rawDescription": "SUPERMERCADO EXEMPLO",
+        "normalizedMerchant": "supermercado exemplo",
+        "friendlyName": "Supermercado",
+        "category": "Mercado",
+        "amount": 800,
+        "scope": "couple",
+        "mySharePct": 50
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+meta {
+  name: Get Month Details
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{edgeUrl}}/api/closings/{{month}}
+  body: none
+  auth: none
+}

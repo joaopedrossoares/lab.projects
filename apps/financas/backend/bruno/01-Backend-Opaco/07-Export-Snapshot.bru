@@ -1,0 +1,15 @@
+meta {
+  name: Export Opaque Snapshot
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{backendUrl}}/api/v1/snapshot
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{syncApiToken}}
+}

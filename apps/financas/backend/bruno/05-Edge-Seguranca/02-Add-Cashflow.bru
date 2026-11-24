@@ -1,0 +1,22 @@
+meta {
+  name: Add Recurring Cashflow
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{edgeUrl}}/api/safety/cashflow
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "direction": "income",
+    "title": "Salário Mensal",
+    "expectedAmount": 10000,
+    "scope": "individual",
+    "paidBy": "me",
+    "mySharePct": 100
+  }
+}

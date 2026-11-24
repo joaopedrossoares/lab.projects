@@ -1,0 +1,15 @@
+meta {
+  name: Delete Opaque Record (Test)
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{backendUrl}}/api/v1/records/bruno-smoke-test
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{syncApiToken}}
+}

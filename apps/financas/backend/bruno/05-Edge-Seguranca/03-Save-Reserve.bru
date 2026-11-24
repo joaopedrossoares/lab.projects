@@ -1,0 +1,19 @@
+meta {
+  name: Save Reserve
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{edgeUrl}}/api/safety/reserve
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "liquidEmergencyReserve": 25000,
+    "coupleAccumulatedSavings": 10000,
+    "otherInvestments": 5000
+  }
+}
