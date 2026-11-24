@@ -74,19 +74,30 @@ services:
       networks:
         - lab-net
 
-  fatura-casal:
-      image: nginx:alpine
+  financas:
+      build:
+        context: ./apps/financas
+        dockerfile: Dockerfile.edge
+      container_name: financas
+      restart: unless-stopped
+      environment:
+        - PORT=3000
+        - LOCAL_MASTER_KEY=${FINANCAS_MASTER_KEY:-}
+        - BACKEND_URL=${FINANCAS_BACKEND_URL:-}
+        - SYNC_API_TOKEN=${FINANCAS_SYNC_TOKEN:-}
+        - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       volumes:
-        # Mapeia a pasta de apps para o Nginx servir a aplicação de faturas
-        - ./apps/fatura-casal-csv-app:/usr/share/nginx/html:ro
+        - ./apps/financas/local-config:/app/local-config
+        - ./apps/financas/data:/app/data
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.fatura.rule=Host(`fatura.traefik.me`)"
-        - "traefik.http.services.fatura.loadbalancer.server.port=80"
+        - "traefik.http.routers.financas.rule=Host(`financas.${LAB_DOMAIN:-traefik.me}`) || Host(`fatura.${LAB_DOMAIN:-traefik.me}`)"
+        - "traefik.http.services.financas.loadbalancer.server.port=3000"
         - "homepage.group=Finanças"
-        - "homepage.name=Faturas Casal"
+        - "homepage.name=Finanças Casal"
         - "homepage.icon=mdi-currency-usd"
-        - "homepage.href=http://fatura.traefik.me"
+        - "homepage.href=http://financas.${LAB_DOMAIN:-traefik.me}"
+        - "homepage.description=Conferência de faturas, segurança financeira e planejamento com IA"
       networks:
         - lab-net
   excalidraw:

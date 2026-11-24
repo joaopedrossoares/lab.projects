@@ -27,7 +27,7 @@ lab.projects/
 │   ├── ai-slide-generator/       # Gerador de slides com IA (Gemini + Marp, Node.js)
 │   ├── cesta-basica/             # Gráfico da cesta básica DIEESE, 2018-2022 x 2022-2026 (Python)
 │   ├── chord-finder/             # App de busca de cifras (Node.js)
-│   ├── fatura-casal-csv-app/     # Leitor e extrator de faturas (Nginx)
+│   ├── financas/                 # Finanças Casal: faturas, segurança financeira e planejamento com IA (React + Node.js)
 │   ├── harmonic-cicle/           # Estudo visual de ciclo harmônico (Nginx)
 │   ├── mercado/                  # Comparador de preços de supermercado por CEP (Node.js)
 │   └── slide-puzzle/             # Slide Math Puzzle, jogo de lógica numérico (Nginx)
@@ -49,7 +49,7 @@ Acesse os serviços localmente:
 | Ciclo Harmônico | http://harmonic.traefik.me | |
 | Chord Finder | http://chords.traefik.me | |
 | Afinador | http://localhost:8081 | Exposto direto em `localhost` para o navegador liberar o microfone (também em http://afinador.traefik.me) |
-| Faturas Casal | http://fatura.traefik.me | |
+| Finanças Casal | http://financas.traefik.me | Também acessível em `http://fatura.traefik.me` |
 | Slide Math Puzzle | http://puzzle.traefik.me | |
 | Cesta Básica | http://cesta.traefik.me | Lê as planilhas de `~/Documents/diaeese/items` (ou `DIEESE_DIR` no `.env`) |
 | Mercado | http://mercado.traefik.me | CEP definido em `CEP` no `docker-compose.yml` |

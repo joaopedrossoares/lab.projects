@@ -1,0 +1,33 @@
+{
+  "name": "financas-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "web",
+    "edge",
+    "backend"
+  ],
+  "scripts": {
+    "dev:web": "npm -w @financas/web run dev",
+    "dev:edge": "npm -w @financas/edge run dev",
+    "dev:backend": "npm -w @financas/backend run dev",
+    "typecheck": "npm -w @financas/shared run typecheck && npm -w @financas/web run typecheck && npm -w @financas/edge run typecheck && npm -w @financas/backend run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "npm -w @financas/shared run build && npm -w @financas/web run build && npm -w @financas/edge run build && npm -w @financas/backend run build",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.15.0",
+    "jsdom": "^26.1.0",
+    "supertest": "^7.1.0",
+    "@types/supertest": "^6.0.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}
