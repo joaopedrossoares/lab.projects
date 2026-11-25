@@ -194,6 +194,66 @@ describe("financeEngine — calculateSafetyOverview & simulatePurchaseImpact", (
     expect(sim.reasons.join(" ")).toContain("12000.00");
   });
 
+  it("uses checkingBalance before emergency reserve without inflating runway and lists viable options with cash_checking as primary", () => {
+    const reserve = {
+      ...DEFAULT_RESERVE_STATE,
+      checkingBalance: 3500,
+      liquidEmergencyReserve: 12000, // 4 months runway over 3000 essential (does NOT include checkingBalance!)
+    };
+    const overview = calculateSafetyOverview({
+      recurring: [
+        {
+          id: "inc-1",
+          direction: "income",
+          title: "Salário",
+          expectedAmount: 10000,
+          paidBy: "me",
+          scope: "individual",
+          mySharePct: 100,
+          active: true,
+          updatedAt: now,
+        },
+        {
+          id: "exp-1",
+          direction: "expense",
+          title: "Aluguel",
+          expectedAmount: 3000,
+          paidBy: "me",
+          scope: "individual",
+          mySharePct: 100,
+          active: true,
+          updatedAt: now,
+        },
+      ],
+      reserve,
+      profile: { ...DEFAULT_USER_PROFILE, targetRunwayMonths: 6, maxCommitmentPct: 60 },
+      closings: [],
+      futureInstallments: [],
+    });
+
+    // Runway ignores checkingBalance -> strictly 12000 / 3000 = 4 months
+    expect(overview.indicators.runwayMonths).toBe(4);
+
+    // Purchase R$ 2.000 in 10x -> checkingBalance (3500) covers it cleanly!
+    const sim = simulatePurchaseImpact(overview, reserve, DEFAULT_USER_PROFILE, {
+      title: "Mini PC",
+      price: 2000,
+      installments: 10,
+      scope: "individual",
+    });
+
+    expect(sim.verdict).toBe("buy_now");
+    expect(sim.checkingDrawdown).toBe(2000);
+    expect(sim.checkingRemainingAfterCash).toBe(1500);
+    expect(sim.reserveDrawdown).toBe(0);
+    expect(sim.cashPaymentRunwayMonths).toBe(4);
+    expect(sim.viableOptions[0]).toMatchObject({
+      kind: "cash_checking",
+      recommended: true,
+    });
+    expect(sim.viableOptions.some((opt) => opt.kind === "installments")).toBe(true);
+  });
+
   it("handles zero income and zero reserve gracefully without NaN", () => {
     const overview = calculateSafetyOverview({
       recurring: [],

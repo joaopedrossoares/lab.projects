@@ -132,6 +132,11 @@ export function HistoryPage({ onOpenMonth }: HistoryPageProps) {
                         >
                           {item.status === "closed" ? "Fechado" : "Rascunho"}
                         </span>
+                        {(item.extraIncomeTotal || 0) > 0 && (
+                          <span className="pill pill-success">
+                            Extras: +{formatBRL(item.extraIncomeTotal || 0)}
+                          </span>
+                        )}
                       </div>
 
                       <h2>

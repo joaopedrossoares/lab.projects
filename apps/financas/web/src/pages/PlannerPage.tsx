@@ -16,9 +16,18 @@ import {
 } from "../components/Loading";
 import { formatBRL } from "../lib/format";
 
+interface ViableOption {
+  kind: "cash_checking" | "installments" | "save_first";
+  recommended: boolean;
+  title: string;
+  detail: string;
+}
+
 interface SimulationOutput {
   myTotalCost: number;
   monthlyInstallmentImpact: number;
+  checkingDrawdown: number;
+  checkingRemainingAfterCash: number;
   reserveDrawdown: number;
   reserveGapToTarget: number;
   cashPaymentRunwayMonths: number;
@@ -26,6 +35,7 @@ interface SimulationOutput {
   remainingSafeMarginAfterInstallment: number;
   monthsToSaveComfortably: number;
   verdict: "buy_now" | "installments" | "save_first" | "wait";
+  viableOptions?: ViableOption[];
   reasons: string[];
 }
 
@@ -46,6 +56,7 @@ export function PlannerPage() {
   const [couplePlans, setCouplePlans] = useState<CouplePlanNote[]>([]);
   const [interestsText, setInterestsText] = useState("");
   const [indicators, setIndicators] = useState<SafetyIndicators | null>(null);
+  const [checkingBalance, setCheckingBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -101,9 +112,11 @@ export function PlannerPage() {
       if (safetyRes.ok) {
         const d = (await safetyRes.json()) as {
           indicators: SafetyIndicators;
+          reserve?: { checkingBalance?: number };
           profile: { interestsAndGoalsText?: string };
         };
         setIndicators(d.indicators);
+        setCheckingBalance(d.reserve?.checkingBalance ?? 0);
         setInterestsText(d.profile?.interestsAndGoalsText || "");
       }
     } catch {
@@ -365,7 +378,9 @@ export function PlannerPage() {
             <article className="result-card highlight card">
               <span className="label">Margem Segura Livre</span>
               <strong>{formatBRL(indicators.safeFreeMargin)}</strong>
-              <small>Disponível/mês para novas compras</small>
+              <small>
+                Saldo em conta: {formatBRL(checkingBalance)} • Disponível/mês para compras
+              </small>
             </article>
             <article className="result-card card">
               <span className="label">Comprometimento</span>
@@ -562,10 +577,12 @@ export function PlannerPage() {
           </div>
           <p className="category">
             Meu custo total: <strong>{formatBRL(simulation.myTotalCost)}</strong> • Parcela mensal:{" "}
-            <strong>{formatBRL(simulation.monthlyInstallmentImpact)}</strong> • Uso da reserva se à
-            vista: <strong>{formatBRL(simulation.reserveDrawdown)}</strong> • Runway se à vista:{" "}
-            <strong>{simulation.cashPaymentRunwayMonths.toFixed(1)} meses</strong> • Comprometimento
-            se parcelado: <strong>{simulation.installmentCommitmentPct.toFixed(0)}%</strong>
+            <strong>{formatBRL(simulation.monthlyInstallmentImpact)}</strong> • Uso da conta
+            corrente se à vista: <strong>{formatBRL(simulation.checkingDrawdown ?? 0)}</strong> •
+            Uso da reserva se à vista: <strong>{formatBRL(simulation.reserveDrawdown)}</strong> •
+            Runway se à vista: <strong>{simulation.cashPaymentRunwayMonths.toFixed(1)} meses</strong>{" "}
+            • Comprometimento se parcelado:{" "}
+            <strong>{simulation.installmentCommitmentPct.toFixed(0)}%</strong>
             {simulation.reserveGapToTarget > 0 ? (
               <>
                 {" "}
@@ -574,6 +591,22 @@ export function PlannerPage() {
               </>
             ) : null}
           </p>
+          {simulation.viableOptions && simulation.viableOptions.length > 0 && (
+            <ul className="viable-options-list" role="list">
+              {simulation.viableOptions.map((opt) => (
+                <li
+                  key={opt.kind}
+                  className={`viable-option-item ${opt.recommended ? "is-primary" : ""}`.trim()}
+                >
+                  <span className={`pill ${opt.recommended ? "pill-success" : "pill-accent"}`}>
+                    {opt.recommended ? "Opção principal" : "Opção viável"}
+                  </span>
+                  <strong>{opt.title}:</strong>
+                  <span>{opt.detail}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <ul>
             {simulation.reasons.map((r, i) => (
               <li key={i}>{r}</li>

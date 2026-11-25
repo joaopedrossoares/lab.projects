@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type {
   FutureInstallment,
+  MonthlyExtraIncome,
   PaidBy,
   RecurringCashflow,
   ReserveState,
@@ -9,6 +10,7 @@ import type {
   UserProfile,
 } from "@financas/shared";
 import { CurrencyInput } from "../components/CurrencyInput";
+import { ExtraIncomesSection } from "../components/ExtraIncomesSection";
 import {
   LoadingButtonContent,
   LoadingSpinner,
@@ -31,6 +33,7 @@ interface SafetyOverviewResponse {
   indicators: SafetyIndicators;
   breakdown: SafetyBreakdown;
   recurring: RecurringCashflow[];
+  extraIncomes?: MonthlyExtraIncome[];
   reserve: ReserveState;
   profile: UserProfile;
   futureInstallments: FutureInstallment[];
@@ -62,6 +65,7 @@ export function CashflowSafetyPage() {
   const [mySharePct, setMySharePct] = useState(50);
 
   // Reserve form
+  const [checkingBalance, setCheckingBalance] = useState(0);
   const [liquidReserve, setLiquidReserve] = useState(0);
   const [coupleSavings, setCoupleSavings] = useState(0);
   const [otherInvestments, setOtherInvestments] = useState(0);
@@ -78,6 +82,7 @@ export function CashflowSafetyPage() {
       if (!res.ok) return;
       const payload = (await res.json()) as SafetyOverviewResponse;
       setData(payload);
+      setCheckingBalance(payload.reserve.checkingBalance ?? 0);
       setLiquidReserve(payload.reserve.liquidEmergencyReserve ?? 0);
       setCoupleSavings(payload.reserve.coupleAccumulatedSavings ?? 0);
       setOtherInvestments(payload.reserve.otherInvestments ?? 0);
@@ -160,6 +165,7 @@ export function CashflowSafetyPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          checkingBalance,
           liquidEmergencyReserve: liquidReserve,
           coupleAccumulatedSavings: coupleSavings,
           otherInvestments,
@@ -276,9 +282,22 @@ export function CashflowSafetyPage() {
         <section className="card section-card">
           <h2>Reservas & Patrimônio</h2>
           {initialLoading ? (
-            <SkeletonFormGrid fields={3} />
+            <SkeletonFormGrid fields={4} />
           ) : (
             <form className="stack-md" onSubmit={handleSaveReserve}>
+              <div className="field">
+                <label htmlFor="res-checking">Saldo em Conta Corrente (Fluxo de caixa)</label>
+                <CurrencyInput
+                  id="res-checking"
+                  value={checkingBalance}
+                  onChange={setCheckingBalance}
+                />
+                <small className="category">
+                  Caixa livre de giro — separado da Reserva para não inflar o Runway, usado primeiro
+                  em simulações à vista.
+                </small>
+              </div>
+
               <div className="field">
                 <label htmlFor="res-liquid">Minha reserva líquida de emergência</label>
                 <CurrencyInput
@@ -508,6 +527,12 @@ export function CashflowSafetyPage() {
           </p>
         )}
       </section>
+
+      <ExtraIncomesSection
+        items={data?.extraIncomes ?? []}
+        loading={initialLoading}
+        onChanged={loadOverview}
+      />
 
       {data && data.futureInstallments.length > 0 && (
         <section className="card section-card">

@@ -101,9 +101,10 @@ Para cada item, devolva APENAS um JSON válido (array de objetos) com os campos:
       const provider = getProvider();
       const systemInstruction = `Você é um assistente pessoal de planejamento financeiro objetivo e cauteloso.
 Considere SEMPRE:
-1. Os 4 indicadores de segurança financeira já calculados (não invente matemática diferente das simulações fornecidas).
-2. Os planos ativos do casal (compromissos do casal têm alta prioridade antes de desejos individuais).
-3. Os interesses pessoais do usuário e a urgência/impacto de cada item.
+1. Os 4 indicadores de segurança financeira já calculados, o Saldo em Conta Corrente (checkingBalance, separado da reserva de emergência para não inflar o runway) e as entradas extras recentes (não invente matemática diferente das simulações fornecidas).
+2. Ao avaliar formas de pagamento, apresente as opções viáveis e priorize o uso do Saldo em Conta Corrente (+ margem livre) antes de encostar na Reserva de Emergência.
+3. Os planos ativos do casal (compromissos do casal têm alta prioridade antes de desejos individuais).
+4. Os interesses pessoais do usuário e a urgência/impacto de cada item.
 
 Responda APENAS um JSON válido com o formato:
 {
@@ -194,8 +195,8 @@ Responda APENAS um JSON válido com o formato:
       const provider = getProvider();
 
       const systemInstruction = `Você é o assistente financeiro pessoal do usuário (mora com a namorada).
-Baseie TODAS as respostas exclusivamente nos dados financeiros reais fornecidos abaixo (já calculados pelo motor local).
-Nunca invente valores. Seja direto, prático e sempre leve em conta os planos do casal e a segurança financeira (runway, comprometimento e margem segura).
+Baseie TODAS as respostas exclusivamente nos dados financeiros reais fornecidos abaixo (já calculados pelo motor local), distinguindo claramente Saldo em Conta Corrente (checkingBalance), Reserva de Emergência (liquidEmergencyReserve) e Entradas Extras pontuais (recentExtraIncomes).
+Nunca invente valores. Seja direto, prático, considere as opções viáveis priorizando usar o saldo em conta corrente antes da reserva de emergência, e sempre leve em conta os planos do casal e a segurança financeira (runway, comprometimento e margem segura).
 Responda em português do Brasil.`;
 
       const conversationText = history

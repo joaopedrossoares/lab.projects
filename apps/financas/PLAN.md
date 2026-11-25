@@ -99,12 +99,19 @@ Todos os cálculos rodam de forma **100% determinística** no `edge/`:
 
 ---
 
-## 6. Fases de Execução
+## 6. Fases de Execução & Status
 
-- **Fase 0**: Migração `fatura-casal-csv-app` → `apps/financas`, workspaces (`shared`, `web`, `edge`, `backend`), parser Itaú unificado com parcelas futuras + testes, UI React + TS + Vite sem CDNs e `Dockerfile.edge` no `docker-compose.yml`.
-- **Fase 1**: Criptografia Zero-Knowledge (`shared/crypto`), `backend/` opaco (PostgreSQL + SQLite opcional + `SYNC_API_TOKEN`), `edge/vaultClient`, deploy na **Railway** e painel de Auditoria de Privacidade.
-- **Fase 2**: Memória de Labels (`LABEL_RULE`), edição inline (apelido, categoria, `Individual`/`Casal`, % customizada) e aba `Labels Salvos`.
-- **Fase 3**: Conferência Mensal do Casal (`YYYY-MM`), gastos pagos por mim e por ela, **acerto líquido final**, check-in guiado (economias conjuntas + lista livre de planos do casal) e aba `Histórico`.
-- **Fase 4**: Fluxo de caixa enxuto (recorrentes + avulsos + parcelas futuras + reservas) e Dashboard dos **4 Indicadores de Segurança Financeira**.
-- **Fase 5**: Tela de Configurações de IA 100% local (`Gemini` via `@google/genai` inicialmente, trocável na UI), organização assistida de faturas e página de **Planejamento de Próximas Compras** (backlog + perfil/interesses + simulador + chat/priorização com tools internas).
-- **Fase 6**: Profiles `hybrid` / `local-offline` / `homelab` no `docker-compose.yml`, backup/restauração cifrada em 1 clique e suporte a `OllamaProvider` para autonomia total na rede local.
+- **Fase 0** (`✅ Concluída`): Migração `fatura-casal-csv-app` → `apps/financas`, workspaces (`shared`, `web`, `edge`, `backend`), parser Itaú unificado com parcelas futuras + testes, UI React + TS + Vite sem CDNs e `Dockerfile.edge` no `docker-compose.yml`.
+- **Fase 1** (`✅ Concluída`): Criptografia Zero-Knowledge (`shared/crypto`), `backend/` opaco (PostgreSQL + SQLite opcional + `SYNC_API_TOKEN`), `edge/vaultClient`, deploy na **Railway** e painel de Auditoria de Privacidade.
+- **Fase 2** (`✅ Concluída`): Memória de Labels (`LABEL_RULE`), edição inline (apelido, categoria, `Individual`/`Casal`, % customizada) e aba `Labels Salvos`.
+- **Fase 3** (`✅ Concluída`): Conferência Mensal do Casal (`YYYY-MM`), gastos pagos por mim e por ela, **acerto líquido final**, check-in guiado (economias conjuntas + lista livre de planos do casal) e aba `Histórico`.
+- **Fase 4** (`✅ Concluída`): Fluxo de caixa enxuto (recorrentes + avulsos + parcelas futuras + reservas) e Dashboard dos **4 Indicadores de Segurança Financeira**.
+- **Fase 5** (`✅ Concluída`): Tela de Configurações de IA 100% local (`Gemini` via `@google/genai` inicialmente, trocável na UI), organização assistida de faturas e página de **Planejamento de Próximas Compras** (backlog + perfil/interesses + simulador + chat/priorização com tools internas).
+- **Fase 6** (`✅ Concluída`): Profiles `hybrid` / `local-offline` / `homelab` no `docker-compose.yml`, backup/restauração cifrada em 1 clique e suporte a `OllamaProvider` para autonomia total na rede local.
+- **Melhorias Contínuas** (`✅ Concluída`): Máscara BRL (`CurrencyInput`), suporte Vertex AI Express Mode (`AQ.*`), herança automática de parcelas do mês anterior, pré-carregamento de contas fixas na conferência, Skeletons e estados de Loading nas 6 telas.
+- **Fase 7 — Saldo em Conta Corrente (Fluxo de Caixa) & Entradas Extras com Alocação** (`✅ Concluída`):
+  - Campo **Saldo em Conta Corrente (Fluxo de caixa)** (`checkingBalance?: number` em `ReserveState`) separado da Reserva de Emergência (sem inflar Runway).
+  - **Entradas Extras do Mês** (`entity_type: "cashflow"` com `kind: "extra"` e `periodKey: "YYYY-MM"`, 100% compatível com o backend na Railway sem redeploy) com alocação em **3 destinos**: **Reserva de Emergência**, **Economias do Casal** e **restante automático no Fluxo de Caixa (Conta Corrente)**.
+  - Atualização automática dos 3 saldos controlada por checkbox (ligado por padrão) com **estorno automático ao excluir** e aviso no **Check-in do Casal** para evitar duplicidade.
+  - Cadastro sincronizado tanto na **Conferência Mensal** quanto em **Fluxo & Segurança** (mesma API e lista), refletido no fechamento mensal, no **Histórico** e no contexto interno da IA.
+  - **Simulador de Compras** avaliando todas as opções viáveis e sempre sugerindo como opção principal o uso do **Saldo em Conta Corrente (+ margem livre)** antes de mexer na Reserva de Emergência.

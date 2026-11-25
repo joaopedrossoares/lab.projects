@@ -53,9 +53,18 @@ export interface PurchaseSimulationInput {
   mySharePct?: number;
 }
 
+export interface PurchaseViableOption {
+  kind: "cash_checking" | "installments" | "save_first";
+  recommended: boolean;
+  title: string;
+  detail: string;
+}
+
 export interface PurchaseSimulationResult {
   myTotalCost: number;
   monthlyInstallmentImpact: number;
+  checkingDrawdown: number;
+  checkingRemainingAfterCash: number;
   reserveDrawdown: number;
   reserveGapToTarget: number;
   cashPaymentRunwayMonths: number;
@@ -63,6 +72,7 @@ export interface PurchaseSimulationResult {
   remainingSafeMarginAfterInstallment: number;
   monthsToSaveComfortably: number;
   verdict: "buy_now" | "installments" | "save_first" | "wait";
+  viableOptions: PurchaseViableOption[];
   reasons: string[];
 }
 
@@ -77,6 +87,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
 
 export const DEFAULT_RESERVE_STATE: ReserveState = {
   id: "reserve-state-default",
+  checkingBalance: 0,
   liquidEmergencyReserve: 0,
   coupleAccumulatedSavings: 0,
   otherInvestments: 0,
@@ -277,11 +288,16 @@ export function simulatePurchaseImpact(
   const monthlyInstallmentImpact = round2(myTotalCost / installments);
 
   const essential = overview.indicators.monthlyEssentialCost;
+  const checkingBalance = Math.max(0, reserve.checkingBalance || 0);
   const liquidReserve = Math.max(0, reserve.liquidEmergencyReserve || 0);
   const safeFreeMargin = overview.indicators.safeFreeMargin;
 
-  // Paying cash uses this month's free margin first; only the excess touches the emergency reserve
-  const reserveDrawdown = round2(Math.max(0, myTotalCost - Math.max(0, safeFreeMargin)));
+  // Paying cash uses checking balance first, then this month's free margin; only excess touches emergency reserve
+  const checkingDrawdown = round2(Math.min(myTotalCost, checkingBalance));
+  const checkingRemainingAfterCash = round2(Math.max(0, checkingBalance - checkingDrawdown));
+  const afterChecking = round2(Math.max(0, myTotalCost - checkingDrawdown));
+  const marginDrawdown = round2(Math.min(afterChecking, Math.max(0, safeFreeMargin)));
+  const reserveDrawdown = round2(Math.max(0, afterChecking - marginDrawdown));
   const reserveAfterCash = Math.max(0, liquidReserve - reserveDrawdown);
   const cashPaymentRunwayMonths = essential > 0 ? round2(reserveAfterCash / essential) : 0;
 
@@ -298,35 +314,62 @@ export function simulatePurchaseImpact(
 
   const remainingSafeMarginAfterInstallment = round2(safeFreeMargin - monthlyInstallmentImpact);
 
+  const missingCashForSaveFirst = round2(Math.max(0, myTotalCost - checkingBalance));
   const monthsToSaveComfortably =
-    safeFreeMargin > 0 ? Math.max(1, Math.ceil(myTotalCost / safeFreeMargin)) : 99;
+    safeFreeMargin > 0
+      ? Math.max(1, Math.ceil((missingCashForSaveFirst > 0 ? missingCashForSaveFirst : myTotalCost) / safeFreeMargin))
+      : 99;
+
+  const canPayCashFromChecking = checkingBalance > 0 && checkingBalance >= myTotalCost;
+  const canPayCashWithoutReserve = reserveDrawdown <= 0;
+  const canPayInstallments =
+    installments > 1 &&
+    remainingSafeMarginAfterInstallment >= 0 &&
+    installmentCommitmentPct <= maxCommit &&
+    overview.indicators.runwayMonths >= targetRunway * 0.5;
+  const canSaveComfortably = safeFreeMargin > 0 && monthsToSaveComfortably <= 12;
 
   const reasons: string[] = [];
   let verdict: PurchaseSimulationResult["verdict"];
 
-  if (myTotalCost <= safeFreeMargin && cashPaymentRunwayMonths >= targetRunway) {
+  if (canPayCashWithoutReserve && (cashPaymentRunwayMonths >= targetRunway || canPayCashFromChecking)) {
     verdict = "buy_now";
-    reasons.push(
-      "Cabe integralmente na sua margem segura deste mês sem tocar na reserva de emergência, que já atinge sua meta."
-    );
-  } else if (
-    installments > 1 &&
-    remainingSafeMarginAfterInstallment >= 0 &&
-    installmentCommitmentPct <= maxCommit &&
-    overview.indicators.runwayMonths >= targetRunway * 0.5
-  ) {
+    if (checkingDrawdown > 0 && marginDrawdown > 0) {
+      reasons.push(
+        `À vista (opção principal): usa R$ ${checkingDrawdown.toFixed(2)} do Saldo em Conta Corrente + R$ ${marginDrawdown.toFixed(2)} da margem livre deste mês, sem encostar na reserva de emergência (runway mantido em ${cashPaymentRunwayMonths} meses).`
+      );
+    } else if (checkingDrawdown > 0) {
+      reasons.push(
+        `À vista (opção principal): cabe no Saldo em Conta Corrente (usa R$ ${checkingDrawdown.toFixed(2)}, restam R$ ${checkingRemainingAfterCash.toFixed(2)} em conta), mantendo sua reserva de emergência intacta.`
+      );
+    } else {
+      reasons.push(
+        "Cabe integralmente na sua margem segura deste mês sem tocar na reserva de emergência, que já atinge sua meta."
+      );
+    }
+    if (reserveGapToTarget > 0) {
+      reasons.push(
+        `Atenção: sua reserva de emergência atual está em ${overview.indicators.runwayMonths} meses (faltam R$ ${reserveGapToTarget.toFixed(2)} para a meta de ${targetRunway} meses).`
+      );
+    }
+  } else if (canPayInstallments) {
     verdict = "installments";
     reasons.push(
       `A parcela de R$ ${monthlyInstallmentImpact.toFixed(2)} cabe na margem segura e mantém o comprometimento em ${installmentCommitmentPct}% (limite ${maxCommit}%), mantendo sua reserva intacta.`
     );
+    if (reserveDrawdown > 0) {
+      reasons.push(
+        `À vista hoje exigiria R$ ${reserveDrawdown.toFixed(2)} da reserva de emergência (além de R$ ${checkingDrawdown.toFixed(2)} da conta corrente e R$ ${marginDrawdown.toFixed(2)} da margem), reduzindo o runway para ${cashPaymentRunwayMonths} meses.`
+      );
+    }
     if (reserveGapToTarget > 0) {
       reasons.push(
         `Atenção: sua reserva atual está em ${overview.indicators.runwayMonths} meses (faltam R$ ${reserveGapToTarget.toFixed(2)} para completar a meta de ${targetRunway} meses).`
       );
     }
-  } else if (safeFreeMargin > 0 && monthsToSaveComfortably <= 12) {
+  } else if (canSaveComfortably) {
     verdict = "save_first";
-    if (myTotalCost <= safeFreeMargin && reserveGapToTarget > 0) {
+    if (canPayCashWithoutReserve && reserveGapToTarget > 0) {
       reasons.push(
         `O item (R$ ${myTotalCost.toFixed(2)}) cabe na sua margem livre deste mês sem mexer na reserva, mas sua reserva de emergência está em ${overview.indicators.runwayMonths} meses (meta: ${targetRunway} meses).`
       );
@@ -338,7 +381,7 @@ export function simulatePurchaseImpact(
         `Para pagar à vista hoje você precisaria tirar R$ ${reserveDrawdown.toFixed(2)} da reserva de emergência, derrubando seu runway para ${cashPaymentRunwayMonths} meses (meta ${targetRunway} meses).`
       );
       reasons.push(
-        `Juntando sua margem livre (R$ ${safeFreeMargin.toFixed(2)}/mês), você acumula o valor total (R$ ${myTotalCost.toFixed(2)}) em ~${monthsToSaveComfortably} mês(es) sem tocar na reserva.`
+        `Juntando sua margem livre (R$ ${safeFreeMargin.toFixed(2)}/mês), você acumula o restante (R$ ${missingCashForSaveFirst.toFixed(2)}) em ~${monthsToSaveComfortably} mês(es) sem tocar na reserva.`
       );
     }
   } else {
@@ -348,9 +391,52 @@ export function simulatePurchaseImpact(
     );
   }
 
+  // Always list all viable options, marking option 1 (cash with checking balance) as primary whenever viable
+  const viableOptions: PurchaseViableOption[] = [];
+  if (canPayCashWithoutReserve && (cashPaymentRunwayMonths >= targetRunway || canPayCashFromChecking)) {
+    viableOptions.push({
+      kind: "cash_checking",
+      recommended: verdict === "buy_now",
+      title:
+        checkingDrawdown > 0
+          ? "À vista usando Saldo em Conta Corrente"
+          : "À vista usando Margem Livre do mês",
+      detail:
+        checkingDrawdown > 0 && marginDrawdown > 0
+          ? `Usa R$ ${checkingDrawdown.toFixed(2)} da conta corrente + R$ ${marginDrawdown.toFixed(2)} da margem do mês; reserva intacta.`
+          : checkingDrawdown > 0
+            ? `Usa R$ ${checkingDrawdown.toFixed(2)} da conta corrente (restam R$ ${checkingRemainingAfterCash.toFixed(2)}); reserva intacta.`
+            : `Usa R$ ${marginDrawdown.toFixed(2)} da margem segura livre deste mês; reserva intacta.`,
+    });
+  }
+  if (canPayInstallments) {
+    viableOptions.push({
+      kind: "installments",
+      recommended: verdict === "installments",
+      title: `Parcelado em ${installments}x de R$ ${monthlyInstallmentImpact.toFixed(2)}`,
+      detail: `Comprometimento fica em ${installmentCommitmentPct}% (limite ${maxCommit}%) e sobra R$ ${remainingSafeMarginAfterInstallment.toFixed(2)}/mês de margem livre.`,
+    });
+  }
+  if (canSaveComfortably) {
+    viableOptions.push({
+      kind: "save_first",
+      recommended: verdict === "save_first",
+      title:
+        reserveGapToTarget > 0
+          ? "Reforçar reserva / juntar antes"
+          : `Juntar antes (~${monthsToSaveComfortably} mês(es))`,
+      detail:
+        reserveGapToTarget > 0
+          ? `Preserva o saldo atual para ajudar a cobrir os R$ ${reserveGapToTarget.toFixed(2)} restantes da meta de reserva.`
+          : `Guardando R$ ${safeFreeMargin.toFixed(2)}/mês de margem livre, você junta o valor sem comprometer a reserva.`,
+    });
+  }
+
   return {
     myTotalCost,
     monthlyInstallmentImpact,
+    checkingDrawdown,
+    checkingRemainingAfterCash,
     reserveDrawdown,
     reserveGapToTarget,
     cashPaymentRunwayMonths,
@@ -358,6 +444,7 @@ export function simulatePurchaseImpact(
     remainingSafeMarginAfterInstallment,
     monthsToSaveComfortably,
     verdict,
+    viableOptions,
     reasons,
   };
 }

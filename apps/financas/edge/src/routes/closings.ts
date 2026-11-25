@@ -1,7 +1,9 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import {
+  isMonthlyExtraIncome,
   normalizeMerchantKey,
+  type CashflowEntity,
   type CouplePlanNote,
   type FutureInstallment,
   type MonthlyClosing,
@@ -13,6 +15,10 @@ import type { VaultClient } from "../vaultClient.js";
 import { loadFullSafetyContext } from "./safety.js";
 
 const MONTH_REGEX = /^\d{4}-\d{2}$/;
+
+function round2(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
 
 function closingRecordId(month: string): string {
   return `closing-${month}`;
@@ -64,14 +70,26 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
     }
 
     try {
-      const [closing, savedTransactions, futureInstallments, couplePlans, recurring] =
+      const [closing, savedTransactions, futureInstallments, couplePlans, allCashflow] =
         await Promise.all([
           vaultClient.getEntity<MonthlyClosing>(closingRecordId(month)),
           vaultClient.listEntities<Transaction>("tx", { periodKey: month }),
           vaultClient.listEntities<FutureInstallment>("future_installment", { periodKey: month }),
           vaultClient.listEntities<CouplePlanNote>("couple_plan"),
-          vaultClient.listEntities<RecurringCashflow>("cashflow"),
+          vaultClient.listEntities<CashflowEntity>("cashflow"),
         ]);
+
+      const recurring = allCashflow.filter(
+        (item): item is RecurringCashflow => !isMonthlyExtraIncome(item)
+      );
+      const extraIncomes = allCashflow
+        .filter(isMonthlyExtraIncome)
+        .filter((item) => item.month === month)
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const extraIncomeTotal = round2(extraIncomes.reduce((sum, item) => sum + item.amount, 0));
+      const extraToCoupleTotal = round2(
+        extraIncomes.reduce((sum, item) => sum + item.allocation.toCouple, 0)
+      );
 
       const recurringTxs = buildRecurringExpenseTransactions(month, recurring);
       const isFreshMonth = !closing && savedTransactions.length === 0;
@@ -92,6 +110,9 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
         transactions,
         futureInstallments,
         couplePlans: couplePlans.filter((p) => !p.id.startsWith("audit-test-")),
+        extraIncomes,
+        extraIncomeTotal,
+        extraToCoupleTotal,
         settlement,
         preloadedFixedCount: isFreshMonth ? recurringTxs.length : 0,
         missingRecurringExpenses,
@@ -246,6 +267,11 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
       const settlement = calculateCoupleSettlement(transactions);
       const existing = await vaultClient.getEntity<MonthlyClosing>(closingRecordId(month));
       const safetyCtx = await loadFullSafetyContext(vaultClient);
+      const monthExtras = safetyCtx.extraIncomes.filter((item) => item.month === month);
+      const extraIncomeTotal = round2(monthExtras.reduce((sum, item) => sum + item.amount, 0));
+      const extraToCoupleTotal = round2(
+        monthExtras.reduce((sum, item) => sum + item.allocation.toCouple, 0)
+      );
       const now = new Date().toISOString();
       const status = body.status === "draft" ? "draft" : "closed";
 
@@ -256,7 +282,9 @@ export function createClosingsRouter(vaultClient: VaultClient): Router {
         totalIncome:
           typeof body.totalIncome === "number" && Number.isFinite(body.totalIncome)
             ? body.totalIncome
-            : existing?.totalIncome || safetyCtx.overview.breakdown.monthlyIncome,
+            : round2(safetyCtx.overview.breakdown.monthlyIncome + extraIncomeTotal),
+        extraIncomeTotal,
+        extraToCoupleTotal,
         totalMyExpenses: settlement.totalMyExpenses,
         totalCoupleExpenses: settlement.totalCouple,
         netSettlementAmount: settlement.netSettlementAmount,

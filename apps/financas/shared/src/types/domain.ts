@@ -77,6 +77,8 @@ export interface MonthlyClosing {
   month: string; // YYYY-MM
   status: "draft" | "closed";
   totalIncome: number;
+  extraIncomeTotal?: number;
+  extraToCoupleTotal?: number;
   totalMyExpenses: number;
   totalCoupleExpenses: number;
   netSettlementAmount: number; // positive: partner pays me; negative: I pay partner
@@ -89,6 +91,7 @@ export interface MonthlyClosing {
 
 export interface RecurringCashflow {
   id: string;
+  kind?: "recurring";
   direction: "income" | "expense";
   title: string;
   expectedAmount: number;
@@ -99,8 +102,35 @@ export interface RecurringCashflow {
   updatedAt: string;
 }
 
+export interface ExtraIncomeAllocation {
+  toReserve: number;
+  toCouple: number;
+  toChecking: number;
+}
+
+export interface MonthlyExtraIncome {
+  id: string;
+  kind: "extra";
+  month: string; // YYYY-MM
+  title: string;
+  amount: number;
+  allocation: ExtraIncomeAllocation;
+  appliedToBalances: boolean;
+  notes?: string;
+  updatedAt: string;
+}
+
+export type CashflowEntity = RecurringCashflow | MonthlyExtraIncome;
+
+export function isMonthlyExtraIncome(item: unknown): item is MonthlyExtraIncome {
+  return Boolean(
+    item && typeof item === "object" && (item as { kind?: unknown }).kind === "extra"
+  );
+}
+
 export interface ReserveState {
   id: string;
+  checkingBalance?: number;
   liquidEmergencyReserve: number;
   coupleAccumulatedSavings: number;
   otherInvestments: number;

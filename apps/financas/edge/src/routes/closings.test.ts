@@ -190,4 +190,51 @@ describe("Monthly Closings & Couple Plans API (Fase 3)", () => {
     expect(existingRes.body.transactions[0].id).toBe("existing-card-tx");
     expect(existingRes.body.missingRecurringExpenses).toHaveLength(2);
   });
+
+  it("includes monthly extra incomes in conference GET and sums them into closing totalIncome without treating them as fixed expenses", async () => {
+    const app = createEdgeApp({ vaultClient: client });
+
+    await injectExpress(app, {
+      method: "POST",
+      url: "/api/safety/cashflow",
+      body: { direction: "income", title: "Salário", expectedAmount: 7000 },
+    });
+
+    await injectExpress(app, {
+      method: "POST",
+      url: "/api/safety/extra-incomes",
+      body: {
+        month: "2026-11",
+        title: "PLR Semestral",
+        amount: 2500,
+        toReserve: 1000,
+        toCouple: 500,
+        applyToBalances: true,
+      },
+    });
+
+    const getRes = await injectExpress<{
+      transactions: unknown[];
+      extraIncomes: Array<{ title: string; amount: number }>;
+      extraIncomeTotal: number;
+      extraToCoupleTotal: number;
+    }>(app, { url: "/api/closings/2026-11" });
+
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.transactions).toHaveLength(0);
+    expect(getRes.body.extraIncomes).toHaveLength(1);
+    expect(getRes.body.extraIncomeTotal).toBe(2500);
+    expect(getRes.body.extraToCoupleTotal).toBe(500);
+
+    const closeRes = await injectExpress<{ closing: MonthlyClosing }>(app, {
+      method: "POST",
+      url: "/api/closings/2026-11/close",
+      body: { status: "closed", transactions: [] },
+    });
+
+    expect(closeRes.status).toBe(200);
+    expect(closeRes.body.closing.totalIncome).toBe(9500); // 7000 recurring + 2500 extra
+    expect(closeRes.body.closing.extraIncomeTotal).toBe(2500);
+    expect(closeRes.body.closing.extraToCoupleTotal).toBe(500);
+  });
 });

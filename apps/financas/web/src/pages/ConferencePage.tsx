@@ -14,6 +14,7 @@ import {
   type FutureInstallment,
   type LabelRule,
   type MonthlyClosing,
+  type MonthlyExtraIncome,
   type PaidBy,
   type ParsedBillResult,
   type ParsedTransaction,
@@ -21,6 +22,7 @@ import {
   type TransactionScope,
 } from "@financas/shared";
 import { CurrencyInput } from "../components/CurrencyInput";
+import { ExtraIncomesSection } from "../components/ExtraIncomesSection";
 import {
   LoadingButtonContent,
   LoadingSpinner,
@@ -59,6 +61,7 @@ export function ConferencePage({
   const [futureInstallments, setFutureInstallments] = useState<FutureInstallment[]>([]);
   const [closing, setClosing] = useState<MonthlyClosing | null>(null);
   const [couplePlans, setCouplePlans] = useState<CouplePlanNote[]>([]);
+  const [extraIncomes, setExtraIncomes] = useState<MonthlyExtraIncome[]>([]);
 
   const [uploadPaidBy, setUploadPaidBy] = useState<PaidBy>("me");
   const [filter, setFilter] = useState("");
@@ -102,6 +105,7 @@ export function ConferencePage({
     setTransactions([]);
     setMissingFixedExpenses([]);
     setFutureInstallments([]);
+    setExtraIncomes([]);
     try {
       const res = await fetch(`/api/closings/${encodeURIComponent(targetMonth)}`, { signal });
       if (!res.ok || signal?.aborted) return;
@@ -110,6 +114,7 @@ export function ConferencePage({
         transactions: Transaction[];
         futureInstallments: FutureInstallment[];
         couplePlans: CouplePlanNote[];
+        extraIncomes?: MonthlyExtraIncome[];
         preloadedFixedCount?: number;
         missingRecurringExpenses?: Transaction[];
       };
@@ -119,6 +124,7 @@ export function ConferencePage({
       setMissingFixedExpenses(data.missingRecurringExpenses || []);
       setFutureInstallments(data.futureInstallments || []);
       setCouplePlans(data.couplePlans || []);
+      setExtraIncomes(data.extraIncomes || []);
       setCoupleSavedInput(data.closing?.coupleSavedThisMonth ?? 0);
       setCheckinNotesInput(data.closing?.coupleCheckinNotes ?? "");
       if ((data.preloadedFixedCount || 0) > 0) {
@@ -139,6 +145,19 @@ export function ConferencePage({
       if (!signal?.aborted) {
         setLoadingMonth(false);
       }
+    }
+  }, []);
+
+  const reloadExtraIncomes = useCallback(async (targetMonth: string) => {
+    try {
+      const res = await fetch(
+        `/api/safety/extra-incomes?month=${encodeURIComponent(targetMonth)}`
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as { extraIncomes: MonthlyExtraIncome[] };
+      setExtraIncomes(data.extraIncomes || []);
+    } catch {
+      // Offline/test mode
     }
   }, []);
 
@@ -531,6 +550,11 @@ export function ConferencePage({
     [transactions]
   );
 
+  const extraToCoupleTotal = useMemo(
+    () => extraIncomes.reduce((sum, item) => sum + (item.allocation?.toCouple || 0), 0),
+    [extraIncomes]
+  );
+
   return (
     <>
       <section className="hero card">
@@ -735,6 +759,14 @@ export function ConferencePage({
           </button>
         </form>
       </section>
+
+      <ExtraIncomesSection
+        fixedMonth={month}
+        items={extraIncomes}
+        loading={loadingMonth}
+        compact
+        onChanged={() => reloadExtraIncomes(month)}
+      />
 
       {transactions.length > 0 && (
         <section className="toolbar card">
@@ -1014,6 +1046,14 @@ export function ConferencePage({
           <p className="category">
             Resumo do acerto: <strong>{settlementText.headline}</strong> ({settlementText.detail}).
           </p>
+
+          {extraToCoupleTotal > 0 && (
+            <div className="audit-banner" role="note">
+              <strong>Atenção para não duplicar:</strong> você já alocou{" "}
+              <strong>{formatBRL(extraToCoupleTotal)}</strong> de entradas extras em {month} para{" "}
+              <strong>Economias do Casal</strong>. Informe abaixo apenas aportes adicionais do mês.
+            </div>
+          )}
 
           <div className="stack-md">
             <div className="field">
