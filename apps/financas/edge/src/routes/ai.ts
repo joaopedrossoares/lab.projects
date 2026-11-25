@@ -34,10 +34,29 @@ export function createAIRouter(options: AIRouterOptions): Router {
     res.json({ config: safe });
   });
 
+  router.get("/usage", (_req, res) => {
+    res.json({ usage: localConfigStore.getAIUsageSummary() });
+  });
+
+  router.delete("/usage", (_req, res) => {
+    localConfigStore.clearAIUsage();
+    res.json({ usage: localConfigStore.getAIUsageSummary() });
+  });
+
   router.post("/test", async (_req, res) => {
     try {
       const provider = getProvider();
       const result = await provider.testConnection();
+      localConfigStore.recordAIUsage({
+        operation: "test",
+        provider: result.provider,
+        model: result.model,
+        promptTokens: 12,
+        outputTokens: result.ok ? 4 : 0,
+        totalTokens: result.ok ? 16 : 12,
+        estimated: true,
+        ok: result.ok,
+      });
       res.json(result);
     } catch (err) {
       res.status(400).json({
@@ -73,6 +92,17 @@ Para cada item, devolva APENAS um JSON válido (array de objetos) com os campos:
         expectJson: true,
       });
 
+      localConfigStore.recordAIUsage({
+        operation: "suggest_labels",
+        provider: response.provider,
+        model: response.model,
+        promptTokens: response.usage?.promptTokens ?? 0,
+        outputTokens: response.usage?.outputTokens ?? 0,
+        totalTokens: response.usage?.totalTokens ?? 0,
+        estimated: response.usage?.estimated,
+        ok: true,
+      });
+
       const suggestions = parseJsonFromAIResponse<
         Array<{
           id: string;
@@ -84,6 +114,16 @@ Para cada item, devolva APENAS um JSON válido (array de objetos) com os campos:
 
       res.json({ suggestions, provider: response.provider, model: response.model });
     } catch (err) {
+      const cfg = localConfigStore.getResolvedConfig();
+      localConfigStore.recordAIUsage({
+        operation: "suggest_labels",
+        provider: cfg.provider,
+        model: cfg.model,
+        promptTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        ok: false,
+      });
       res.status(502).json({
         error: err instanceof Error ? err.message : "Erro ao gerar sugestões de labels com IA.",
       });
@@ -124,6 +164,17 @@ Responda APENAS um JSON válido com o formato:
         systemInstruction,
         prompt: JSON.stringify(context),
         expectJson: true,
+      });
+
+      localConfigStore.recordAIUsage({
+        operation: "prioritize",
+        provider: response.provider,
+        model: response.model,
+        promptTokens: response.usage?.promptTokens ?? 0,
+        outputTokens: response.usage?.outputTokens ?? 0,
+        totalTokens: response.usage?.totalTokens ?? 0,
+        estimated: response.usage?.estimated,
+        ok: true,
       });
 
       const parsed = parseJsonFromAIResponse<{
@@ -214,12 +265,33 @@ ${message}`;
         prompt,
       });
 
+      localConfigStore.recordAIUsage({
+        operation: "chat",
+        provider: response.provider,
+        model: response.model,
+        promptTokens: response.usage?.promptTokens ?? 0,
+        outputTokens: response.usage?.outputTokens ?? 0,
+        totalTokens: response.usage?.totalTokens ?? 0,
+        estimated: response.usage?.estimated,
+        ok: true,
+      });
+
       res.json({
         reply: response.text,
         provider: response.provider,
         model: response.model,
       });
     } catch (err) {
+      const cfg = localConfigStore.getResolvedConfig();
+      localConfigStore.recordAIUsage({
+        operation: "chat",
+        provider: cfg.provider,
+        model: cfg.model,
+        promptTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        ok: false,
+      });
       res.status(502).json({
         error: err instanceof Error ? err.message : "Erro ao consultar assistente de IA.",
       });

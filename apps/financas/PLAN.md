@@ -115,3 +115,6 @@ Todos os cálculos rodam de forma **100% determinística** no `edge/`:
   - Atualização automática dos 3 saldos controlada por checkbox (ligado por padrão) com **estorno automático ao excluir** e aviso no **Check-in do Casal** para evitar duplicidade.
   - Cadastro sincronizado tanto na **Conferência Mensal** quanto em **Fluxo & Segurança** (mesma API e lista), refletido no fechamento mensal, no **Histórico** e no contexto interno da IA.
   - **Simulador de Compras** avaliando todas as opções viáveis e sempre sugerindo como opção principal o uso do **Saldo em Conta Corrente (+ margem livre)** antes de mexer na Reserva de Emergência.
+- **Fase 8 — Monitoramento de Consumo (IA + Railway) em Configurações** (`✅ Concluída`):
+  - Telemetria 100% local e cifrada de chamadas/tokens da IA (`Gemini` / `Vertex AI Express` / `OpenAI-compatible` / `Ollama`) com breakdown mensal, estimativa de custo em US\$ e recomendação automática de modelo.
+  - Consulta opcional de consumo da **Railway** (API GraphQL oficial com token salvo apenas no volume local cifrado do Edge) exibindo uso de CPU/RAM/Disco por serviço (`api`, `Postgres`), custo atual/estimado do ciclo e recomendação de otimização.

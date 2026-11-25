@@ -8,6 +8,7 @@ import type { LocalConfigStore } from "./localConfigStore.js";
 import { createAIRouter } from "./routes/ai.js";
 import { createClosingsRouter, createCouplePlansRouter } from "./routes/closings.js";
 import { createLabelsRouter } from "./routes/labels.js";
+import { createMonitoringRouter } from "./routes/monitoring.js";
 import { createPlannerRouter } from "./routes/planner.js";
 import { createSafetyRouter } from "./routes/safety.js";
 import type { VaultClient } from "./vaultClient.js";
@@ -17,11 +18,19 @@ export interface EdgeAppOptions {
   vaultClient?: VaultClient;
   localConfigStore?: LocalConfigStore;
   aiProviderFactory?: (config: AIProviderConfig) => AIProvider;
+  railwayFetch?: typeof fetch;
   keySource?: "env" | "local-file" | "generated";
 }
 
 export function createEdgeApp(options: EdgeAppOptions = {}): Express {
-  const { webDistDir, vaultClient, localConfigStore, aiProviderFactory, keySource = "env" } = options;
+  const {
+    webDistDir,
+    vaultClient,
+    localConfigStore,
+    aiProviderFactory,
+    railwayFetch,
+    keySource = "env",
+  } = options;
   const app = express();
   app.use(express.json({ limit: "5mb" }));
 
@@ -152,6 +161,13 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Express {
           vaultClient,
           localConfigStore,
           providerFactory: aiProviderFactory,
+        })
+      );
+      app.use(
+        "/api/monitoring",
+        createMonitoringRouter({
+          localConfigStore,
+          fetchImpl: railwayFetch,
         })
       );
     }

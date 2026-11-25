@@ -28,6 +28,7 @@ describe("AI Local Config, Internal Tools & Purchase Planner (Fase 5)", () => {
         return {
           provider: "mock-gemini",
           model: "gemini-4-hydrogen",
+          usage: { promptTokens: 200, outputTokens: 80, totalTokens: 280 },
           text: JSON.stringify([
             {
               id: "tx-unknown-1",
@@ -47,6 +48,7 @@ describe("AI Local Config, Internal Tools & Purchase Planner (Fase 5)", () => {
         return {
           provider: "mock-gemini",
           model: "gemini-4-hydrogen",
+          usage: { promptTokens: 600, outputTokens: 200, totalTokens: 800 },
           text: JSON.stringify({
             summary: "Priorize o item que cabe na margem sem afetar a viagem do casal.",
             items: [
@@ -65,6 +67,7 @@ describe("AI Local Config, Internal Tools & Purchase Planner (Fase 5)", () => {
       return {
         provider: "mock-gemini",
         model: "gemini-4-hydrogen",
+        usage: { promptTokens: 400, outputTokens: 120, totalTokens: 520 },
         text: "Com base na sua margem segura e nos planos do casal, vale comprar à vista.",
       };
     },
@@ -188,9 +191,42 @@ describe("AI Local Config, Internal Tools & Purchase Planner (Fase 5)", () => {
     expect(chatRes.status).toBe(200);
     expect(chatRes.body.reply).toContain("margem segura");
 
+    // Verify local AI usage telemetry recorded all 3 calls (suggest_labels + prioritize + chat)
+    const usageRes = await injectExpress<{
+      usage: {
+        currentMonth: {
+          calls: number;
+          totalTokens: number;
+          estimatedCostUsd: number;
+          byOperation: {
+            suggest_labels: { calls: number };
+            prioritize: { calls: number };
+            chat: { calls: number };
+          };
+        };
+      };
+    }>(app, { url: "/api/ai/usage" });
+
+    expect(usageRes.status).toBe(200);
+    expect(usageRes.body.usage.currentMonth.calls).toBe(3);
+    expect(usageRes.body.usage.currentMonth.totalTokens).toBe(1600);
+    expect(usageRes.body.usage.currentMonth.estimatedCostUsd).toBeGreaterThan(0);
+    expect(usageRes.body.usage.currentMonth.byOperation.suggest_labels.calls).toBe(1);
+    expect(usageRes.body.usage.currentMonth.byOperation.prioritize.calls).toBe(1);
+    expect(usageRes.body.usage.currentMonth.byOperation.chat.calls).toBe(1);
+
+    // Clear usage works
+    const clearRes = await injectExpress<{ usage: { allTime: { calls: number } } }>(app, {
+      method: "DELETE",
+      url: "/api/ai/usage",
+    });
+    expect(clearRes.status).toBe(200);
+    expect(clearRes.body.usage.allTime.calls).toBe(0);
+
     // Zero-knowledge assertion: nothing legible in backend DB
     const rawBackend = JSON.stringify(transport.inspectRawRows());
     expect(rawBackend).not.toContain("Monitor Ultrawide");
     expect(rawBackend).not.toContain("Chile");
+    expect(rawBackend).not.toContain("gemini-4-hydrogen");
   });
 });

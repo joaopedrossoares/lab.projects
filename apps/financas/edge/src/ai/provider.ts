@@ -7,10 +7,56 @@ export interface AIGenerateRequest {
   expectJson?: boolean;
 }
 
+export interface AITokenUsage {
+  promptTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimated?: boolean;
+}
+
 export interface AIGenerateResponse {
   text: string;
   provider: string;
   model: string;
+  usage?: AITokenUsage;
+}
+
+function estimateTokensFromChars(text: string): number {
+  const len = (text || "").trim().length;
+  return len > 0 ? Math.max(1, Math.ceil(len / 4)) : 0;
+}
+
+function normalizeTokenUsage(
+  promptTokens: unknown,
+  outputTokens: unknown,
+  totalTokens: unknown,
+  fallbackPrompt: string,
+  fallbackOutput: string
+): AITokenUsage {
+  const p = typeof promptTokens === "number" && Number.isFinite(promptTokens) && promptTokens >= 0 ? Math.round(promptTokens) : null;
+  const o = typeof outputTokens === "number" && Number.isFinite(outputTokens) && outputTokens >= 0 ? Math.round(outputTokens) : null;
+  const t = typeof totalTokens === "number" && Number.isFinite(totalTokens) && totalTokens >= 0 ? Math.round(totalTokens) : null;
+
+  if (p !== null || o !== null || t !== null) {
+    const resolvedPrompt = p ?? (t !== null && o !== null ? Math.max(0, t - o) : estimateTokensFromChars(fallbackPrompt));
+    const resolvedOutput = o ?? (t !== null && p !== null ? Math.max(0, t - p) : estimateTokensFromChars(fallbackOutput));
+    const resolvedTotal = t ?? resolvedPrompt + resolvedOutput;
+    return {
+      promptTokens: resolvedPrompt,
+      outputTokens: resolvedOutput,
+      totalTokens: resolvedTotal,
+      estimated: false,
+    };
+  }
+
+  const estPrompt = estimateTokensFromChars(fallbackPrompt);
+  const estOutput = estimateTokensFromChars(fallbackOutput);
+  return {
+    promptTokens: estPrompt,
+    outputTokens: estOutput,
+    totalTokens: estPrompt + estOutput,
+    estimated: true,
+  };
 }
 
 export interface AIProvider {
@@ -81,10 +127,28 @@ export class GeminiAIProvider implements AIProvider {
         },
       });
 
+      const outText = response.text || "";
+      const meta = (
+        response as {
+          usageMetadata?: {
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+            totalTokenCount?: number;
+          };
+        }
+      ).usageMetadata;
+
       return {
-        text: response.text || "",
+        text: outText,
         provider: this.providerName,
         model: this.modelName,
+        usage: normalizeTokenUsage(
+          meta?.promptTokenCount,
+          meta?.candidatesTokenCount,
+          meta?.totalTokenCount,
+          `${request.systemInstruction}\n${request.prompt}`,
+          outText
+        ),
       };
     }
 
@@ -98,11 +162,29 @@ export class GeminiAIProvider implements AIProvider {
     const outputText =
       (interaction as { output_text?: string | null }).output_text ??
       extractTextFromInteraction(interaction);
+    const usageRaw = (
+      interaction as {
+        usage?: {
+          total_input_tokens?: number;
+          total_output_tokens?: number;
+          total_tokens?: number;
+          input_tokens?: number;
+          output_tokens?: number;
+        };
+      }
+    ).usage;
 
     return {
       text: outputText || "",
       provider: this.providerName,
       model: this.modelName,
+      usage: normalizeTokenUsage(
+        usageRaw?.total_input_tokens ?? usageRaw?.input_tokens,
+        usageRaw?.total_output_tokens ?? usageRaw?.output_tokens,
+        usageRaw?.total_tokens,
+        `${request.systemInstruction}\n${request.prompt}`,
+        outputText || ""
+      ),
     };
   }
 
@@ -171,11 +253,23 @@ export class OllamaAIProvider implements AIProvider {
       throw new Error(`Ollama respondeu HTTP ${res.status}`);
     }
 
-    const data = (await res.json()) as { message?: { content?: string } };
+    const data = (await res.json()) as {
+      message?: { content?: string };
+      prompt_eval_count?: number;
+      eval_count?: number;
+    };
+    const outText = data.message?.content || "";
     return {
-      text: data.message?.content || "",
+      text: outText,
       provider: this.providerName,
       model: this.modelName,
+      usage: normalizeTokenUsage(
+        data.prompt_eval_count,
+        data.eval_count,
+        undefined,
+        `${request.systemInstruction}\n${request.prompt}`,
+        outText
+      ),
     };
   }
 
@@ -236,11 +330,24 @@ export class OpenAICompatibleAIProvider implements AIProvider {
 
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+      };
     };
+    const outText = data.choices?.[0]?.message?.content || "";
     return {
-      text: data.choices?.[0]?.message?.content || "",
+      text: outText,
       provider: this.providerName,
       model: this.modelName,
+      usage: normalizeTokenUsage(
+        data.usage?.prompt_tokens,
+        data.usage?.completion_tokens,
+        data.usage?.total_tokens,
+        `${request.systemInstruction}\n${request.prompt}`,
+        outText
+      ),
     };
   }
 
