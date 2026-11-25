@@ -9,6 +9,13 @@ import type {
   UserProfile,
 } from "@financas/shared";
 import { CurrencyInput } from "../components/CurrencyInput";
+import {
+  LoadingButtonContent,
+  LoadingSpinner,
+  SkeletonCardList,
+  SkeletonFormGrid,
+  SkeletonSummaryGrid,
+} from "../components/Loading";
 import { formatBRL } from "../lib/format";
 
 interface SafetyBreakdown {
@@ -41,6 +48,10 @@ export function CashflowSafetyPage() {
   const [data, setData] = useState<SafetyOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [feedback, setFeedback] = useState("");
+  const [addingRecurring, setAddingRecurring] = useState(false);
+  const [deletingRecurringId, setDeletingRecurringId] = useState<string | null>(null);
+  const [savingReserve, setSavingReserve] = useState(false);
+  const [savingTargets, setSavingTargets] = useState(false);
 
   // Recurring form
   const [direction, setDirection] = useState<"income" | "expense">("income");
@@ -84,76 +95,121 @@ export function CashflowSafetyPage() {
 
   async function handleAddRecurring(event: FormEvent) {
     event.preventDefault();
-    if (!title.trim() || !Number.isFinite(expectedAmount) || expectedAmount <= 0) return;
+    if (!title.trim() || !Number.isFinite(expectedAmount) || expectedAmount <= 0 || addingRecurring) {
+      return;
+    }
 
-    const res = await fetch("/api/safety/cashflow", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        direction,
-        title: title.trim(),
-        expectedAmount,
-        scope: direction === "income" ? "individual" : scope,
-        paidBy: direction === "income" ? "me" : paidBy,
-        mySharePct: scope === "couple" ? mySharePct : 100,
-      }),
-    });
+    setAddingRecurring(true);
+    setFeedback("");
+    try {
+      const res = await fetch("/api/safety/cashflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          direction,
+          title: title.trim(),
+          expectedAmount,
+          scope: direction === "income" ? "individual" : scope,
+          paidBy: direction === "income" ? "me" : paidBy,
+          mySharePct: scope === "couple" ? mySharePct : 100,
+        }),
+      });
 
-    if (res.ok) {
-      setTitle("");
-      setExpectedAmount(0);
-      setFeedback("Item de fluxo recorrente salvo.");
-      await loadOverview();
+      if (res.ok) {
+        setTitle("");
+        setExpectedAmount(0);
+        setFeedback("Item de fluxo recorrente salvo.");
+        await loadOverview();
+      } else {
+        setFeedback("Não foi possível salvar o item recorrente.");
+      }
+    } catch {
+      setFeedback("Falha ao salvar o item recorrente.");
+    } finally {
+      setAddingRecurring(false);
     }
   }
 
   async function handleDeleteRecurring(id: string) {
-    const res = await fetch(`/api/safety/cashflow/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      setFeedback("Item removido.");
-      await loadOverview();
+    setDeletingRecurringId(id);
+    setFeedback("");
+    try {
+      const res = await fetch(`/api/safety/cashflow/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setFeedback("Item removido.");
+        await loadOverview();
+      } else {
+        setFeedback("Não foi possível remover o item.");
+      }
+    } catch {
+      setFeedback("Falha ao remover o item.");
+    } finally {
+      setDeletingRecurringId(null);
     }
   }
 
   async function handleSaveReserve(event: FormEvent) {
     event.preventDefault();
-    const res = await fetch("/api/safety/reserve", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        liquidEmergencyReserve: liquidReserve,
-        coupleAccumulatedSavings: coupleSavings,
-        otherInvestments,
-      }),
-    });
-    if (res.ok) {
-      setFeedback("Reservas atualizadas e indicadores recalculados.");
-      await loadOverview();
+    if (savingReserve) return;
+    setSavingReserve(true);
+    setFeedback("");
+    try {
+      const res = await fetch("/api/safety/reserve", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          liquidEmergencyReserve: liquidReserve,
+          coupleAccumulatedSavings: coupleSavings,
+          otherInvestments,
+        }),
+      });
+      if (res.ok) {
+        setFeedback("Reservas atualizadas e indicadores recalculados.");
+        await loadOverview();
+      } else {
+        setFeedback("Não foi possível atualizar as reservas.");
+      }
+    } catch {
+      setFeedback("Falha ao salvar reservas.");
+    } finally {
+      setSavingReserve(false);
     }
   }
 
   async function handleSaveTargets(event: FormEvent) {
     event.preventDefault();
-    const res = await fetch("/api/safety/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        targetRunwayMonths: targetRunway,
-        maxCommitmentPct: maxCommitment,
-        targetSavingsRatePct: targetSavingsRate,
-      }),
-    });
-    if (res.ok) {
-      setFeedback("Metas de segurança financeira atualizadas.");
-      await loadOverview();
+    if (savingTargets) return;
+    setSavingTargets(true);
+    setFeedback("");
+    try {
+      const res = await fetch("/api/safety/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetRunwayMonths: targetRunway,
+          maxCommitmentPct: maxCommitment,
+          targetSavingsRatePct: targetSavingsRate,
+        }),
+      });
+      if (res.ok) {
+        setFeedback("Metas de segurança financeira atualizadas.");
+        await loadOverview();
+      } else {
+        setFeedback("Não foi possível atualizar as metas.");
+      }
+    } catch {
+      setFeedback("Falha ao atualizar metas.");
+    } finally {
+      setSavingTargets(false);
     }
   }
 
   const indicators = data?.indicators;
   const breakdown = data?.breakdown;
   const healthBadge = indicators ? HEALTH_LABELS[indicators.healthStatus] : null;
+  const initialLoading = loading && !data;
 
   return (
     <div className="stack-lg">
@@ -161,6 +217,7 @@ export function CashflowSafetyPage() {
         <div className="transaction-meta">
           <p className="eyebrow">Cálculo determinístico • Pessoal + Casal</p>
           {healthBadge && <span className={`pill ${healthBadge.badgeClass}`}>Saúde: {healthBadge.text}</span>}
+          {loading && data && <LoadingSpinner size="sm" label="Recalculando indicadores" />}
         </div>
         <h1 id="conteudo-principal" tabIndex={-1}>
           Fluxo de Caixa & Segurança Financeira
@@ -170,8 +227,11 @@ export function CashflowSafetyPage() {
           reservas para acompanhar seus 4 indicadores de segurança em tempo real.
         </p>
 
-        {loading && !indicators ? (
-          <p className="category">Calculando indicadores...</p>
+        {initialLoading ? (
+          <SkeletonSummaryGrid
+            highlightIndex={3}
+            label="Calculando indicadores de segurança..."
+          />
         ) : indicators && breakdown ? (
           <div className="summary-grid">
             <article className="result-card card">
@@ -215,83 +275,99 @@ export function CashflowSafetyPage() {
       <div className="two-col-grid">
         <section className="card section-card">
           <h2>Reservas & Patrimônio</h2>
-          <form className="stack-md" onSubmit={handleSaveReserve}>
-            <div className="field">
-              <label htmlFor="res-liquid">Minha reserva líquida de emergência</label>
-              <CurrencyInput
-                id="res-liquid"
-                value={liquidReserve}
-                onChange={setLiquidReserve}
-              />
-            </div>
+          {initialLoading ? (
+            <SkeletonFormGrid fields={3} />
+          ) : (
+            <form className="stack-md" onSubmit={handleSaveReserve}>
+              <div className="field">
+                <label htmlFor="res-liquid">Minha reserva líquida de emergência</label>
+                <CurrencyInput
+                  id="res-liquid"
+                  value={liquidReserve}
+                  onChange={setLiquidReserve}
+                />
+              </div>
 
-            <div className="field">
-              <label htmlFor="res-couple">Economias acumuladas do casal</label>
-              <CurrencyInput
-                id="res-couple"
-                value={coupleSavings}
-                onChange={setCoupleSavings}
-              />
-            </div>
+              <div className="field">
+                <label htmlFor="res-couple">Economias acumuladas do casal</label>
+                <CurrencyInput
+                  id="res-couple"
+                  value={coupleSavings}
+                  onChange={setCoupleSavings}
+                />
+              </div>
 
-            <div className="field">
-              <label htmlFor="res-other">Outros investimentos</label>
-              <CurrencyInput
-                id="res-other"
-                value={otherInvestments}
-                onChange={setOtherInvestments}
-              />
-            </div>
+              <div className="field">
+                <label htmlFor="res-other">Outros investimentos</label>
+                <CurrencyInput
+                  id="res-other"
+                  value={otherInvestments}
+                  onChange={setOtherInvestments}
+                />
+              </div>
 
-            <button type="submit" className="primary-button">
-              Salvar reservas
-            </button>
-          </form>
+              <button type="submit" className="primary-button" disabled={savingReserve}>
+                <LoadingButtonContent
+                  loading={savingReserve}
+                  loadingLabel="Salvando reservas..."
+                  idleLabel="Salvar reservas"
+                />
+              </button>
+            </form>
+          )}
         </section>
 
         <section className="card section-card">
           <h2>Metas dos 4 Indicadores</h2>
-          <form className="stack-md" onSubmit={handleSaveTargets}>
-            <div className="field">
-              <label htmlFor="meta-runway">Meta de Runway (meses de reserva)</label>
-              <input
-                id="meta-runway"
-                type="number"
-                min={1}
-                max={36}
-                value={targetRunway}
-                onChange={(e) => setTargetRunway(Number(e.target.value))}
-              />
-            </div>
+          {initialLoading ? (
+            <SkeletonFormGrid fields={3} />
+          ) : (
+            <form className="stack-md" onSubmit={handleSaveTargets}>
+              <div className="field">
+                <label htmlFor="meta-runway">Meta de Runway (meses de reserva)</label>
+                <input
+                  id="meta-runway"
+                  type="number"
+                  min={1}
+                  max={36}
+                  value={targetRunway}
+                  onChange={(e) => setTargetRunway(Number(e.target.value))}
+                />
+              </div>
 
-            <div className="field">
-              <label htmlFor="meta-commit">Limite máximo de comprometimento de renda (%)</label>
-              <input
-                id="meta-commit"
-                type="number"
-                min={10}
-                max={95}
-                value={maxCommitment}
-                onChange={(e) => setMaxCommitment(Number(e.target.value))}
-              />
-            </div>
+              <div className="field">
+                <label htmlFor="meta-commit">Limite máximo de comprometimento de renda (%)</label>
+                <input
+                  id="meta-commit"
+                  type="number"
+                  min={10}
+                  max={95}
+                  value={maxCommitment}
+                  onChange={(e) => setMaxCommitment(Number(e.target.value))}
+                />
+              </div>
 
-            <div className="field">
-              <label htmlFor="meta-savings">Meta mínima de poupança mensal (%)</label>
-              <input
-                id="meta-savings"
-                type="number"
-                min={0}
-                max={80}
-                value={targetSavingsRate}
-                onChange={(e) => setTargetSavingsRate(Number(e.target.value))}
-              />
-            </div>
+              <div className="field">
+                <label htmlFor="meta-savings">Meta mínima de poupança mensal (%)</label>
+                <input
+                  id="meta-savings"
+                  type="number"
+                  min={0}
+                  max={80}
+                  value={targetSavingsRate}
+                  onChange={(e) => setTargetSavingsRate(Number(e.target.value))}
+                />
+              </div>
 
-            <button type="submit" className="secondary-button">
-              Atualizar metas
-            </button>
-          </form>
+              <button type="submit" className="secondary-button" disabled={savingTargets}>
+                <LoadingButtonContent
+                  loading={savingTargets}
+                  loadingLabel="Atualizando metas..."
+                  idleLabel="Atualizar metas"
+                />
+              </button>
+            </form>
+          )}
         </section>
       </div>
 
@@ -373,12 +449,18 @@ export function CashflowSafetyPage() {
             </>
           )}
 
-          <button type="submit" className="primary-button">
-            Adicionar
+          <button type="submit" className="primary-button" disabled={addingRecurring}>
+            <LoadingButtonContent
+              loading={addingRecurring}
+              loadingLabel="Adicionando..."
+              idleLabel="Adicionar"
+            />
           </button>
         </form>
 
-        {data && data.recurring.length > 0 ? (
+        {initialLoading ? (
+          <SkeletonCardList count={3} />
+        ) : data && data.recurring.length > 0 ? (
           <ul className="transactions-list" role="list">
             {data.recurring.map((item) => (
               <li key={item.id}>
@@ -406,9 +488,14 @@ export function CashflowSafetyPage() {
                     <button
                       type="button"
                       className="danger-button compact-button"
+                      disabled={deletingRecurringId === item.id}
                       onClick={() => void handleDeleteRecurring(item.id)}
                     >
-                      Remover
+                      <LoadingButtonContent
+                        loading={deletingRecurringId === item.id}
+                        loadingLabel="Removendo..."
+                        idleLabel="Remover"
+                      />
                     </button>
                   </div>
                 </article>

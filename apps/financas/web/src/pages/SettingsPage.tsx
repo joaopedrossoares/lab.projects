@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useId, useState, type ChangeEvent, type FormEvent } from "react";
 import type { AIProviderType } from "@financas/shared";
+import {
+  LoadingButtonContent,
+  SkeletonAuditGrid,
+  SkeletonFormGrid,
+  SkeletonSummaryGrid,
+} from "../components/Loading";
 
 interface PrivacyStatusPayload {
   mode: "hybrid-remote" | "local-sqlite";
@@ -63,6 +69,7 @@ export function SettingsPage() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [aiFeedback, setAiFeedback] = useState("");
+  const [savingAI, setSavingAI] = useState(false);
   const [testingAI, setTestingAI] = useState(false);
 
   // Privacy audit & backup
@@ -73,6 +80,8 @@ export function SettingsPage() {
     error?: string;
   } | null>(null);
   const [testing, setTesting] = useState(false);
+  const [exportingBackup, setExportingBackup] = useState(false);
+  const [importingBackup, setImportingBackup] = useState(false);
   const [backupFeedback, setBackupFeedback] = useState("");
 
   const providerId = useId();
@@ -116,24 +125,32 @@ export function SettingsPage() {
 
   async function handleSaveAIConfig(event: FormEvent) {
     event.preventDefault();
+    if (savingAI) return;
+    setSavingAI(true);
     setAiFeedback("");
-    const res = await fetch("/api/ai/config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        provider,
-        model,
-        baseUrl,
-        apiKey: apiKeyInput.trim() || undefined,
-      }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { config: SafeAIConfig };
-      setAiConfig(data.config);
-      setApiKeyInput("");
-      setAiFeedback("Configuração de IA salva exclusivamente no volume local cifrado do Edge.");
-    } else {
+    try {
+      const res = await fetch("/api/ai/config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          model,
+          baseUrl,
+          apiKey: apiKeyInput.trim() || undefined,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { config: SafeAIConfig };
+        setAiConfig(data.config);
+        setApiKeyInput("");
+        setAiFeedback("Configuração de IA salva exclusivamente no volume local cifrado do Edge.");
+      } else {
+        setAiFeedback("Falha ao salvar configuração de IA.");
+      }
+    } catch {
       setAiFeedback("Falha ao salvar configuração de IA.");
+    } finally {
+      setSavingAI(false);
     }
   }
 
@@ -172,26 +189,35 @@ export function SettingsPage() {
   }
 
   async function handleExportSnapshot() {
+    if (exportingBackup) return;
+    setExportingBackup(true);
     setBackupFeedback("");
-    const res = await fetch("/api/privacy/snapshot");
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/privacy/snapshot");
+      if (!res.ok) {
+        setBackupFeedback("Erro ao exportar backup cifrado.");
+        return;
+      }
+      const payload = await res.json();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `financas-backup-cifrado-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setBackupFeedback(`Backup exportado com ${payload.count} envelopes cifrados.`);
+    } catch {
       setBackupFeedback("Erro ao exportar backup cifrado.");
-      return;
+    } finally {
+      setExportingBackup(false);
     }
-    const payload = await res.json();
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `financas-backup-cifrado-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setBackupFeedback(`Backup exportado com ${payload.count} envelopes cifrados.`);
   }
 
   async function handleImportSnapshot(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || importingBackup) return;
+    setImportingBackup(true);
     setBackupFeedback("");
     try {
       const parsed = JSON.parse(await file.text());
@@ -206,6 +232,9 @@ export function SettingsPage() {
       await loadData();
     } catch {
       setBackupFeedback("Arquivo de backup inválido ou erro ao restaurar.");
+    } finally {
+      setImportingBackup(false);
+      event.target.value = "";
     }
   }
 
@@ -221,103 +250,115 @@ export function SettingsPage() {
           <strong>apenas no volume local cifrado do Edge</strong> (nunca sobe para a Railway).
         </p>
 
-        <form className="stack-md" onSubmit={handleSaveAIConfig}>
-          <div className="inline-form">
-            <div className="field field-compact">
-              <label htmlFor={providerId}>Provedor de IA</label>
-              <select
-                id={providerId}
-                value={provider}
-                onChange={(e) => {
-                  const next = e.target.value as AIProviderType;
-                  setProvider(next);
-                  if (next === "gemini") setModel("gemini-4-hydrogen");
-                  if (next === "ollama") {
-                    setModel("llama3.1");
-                    if (!baseUrl) setBaseUrl("http://host.docker.internal:11434");
-                  }
-                }}
-              >
-                <option value="gemini">Google Gemini API</option>
-                <option value="ollama">Ollama (Local / Homelab LAN)</option>
-                <option value="openai_compatible">OpenAI-Compatible</option>
-              </select>
-            </div>
+        {loading && !aiConfig ? (
+          <SkeletonFormGrid fields={3} label="Carregando configurações locais de IA..." />
+        ) : (
+          <form className="stack-md" onSubmit={handleSaveAIConfig}>
+            <div className="inline-form">
+              <div className="field field-compact">
+                <label htmlFor={providerId}>Provedor de IA</label>
+                <select
+                  id={providerId}
+                  value={provider}
+                  onChange={(e) => {
+                    const next = e.target.value as AIProviderType;
+                    setProvider(next);
+                    if (next === "gemini") setModel("gemini-4-hydrogen");
+                    if (next === "ollama") {
+                      setModel("llama3.1");
+                      if (!baseUrl) setBaseUrl("http://host.docker.internal:11434");
+                    }
+                  }}
+                >
+                  <option value="gemini">Google Gemini API</option>
+                  <option value="ollama">Ollama (Local / Homelab LAN)</option>
+                  <option value="openai_compatible">OpenAI-Compatible</option>
+                </select>
+              </div>
 
-            <div className="field">
-              <label htmlFor={modelId}>Modelo</label>
-              <input
-                id={modelId}
-                type="text"
-                list="gemini-models-list"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                required
-              />
-              <datalist id="gemini-models-list">
-                {GEMINI_MODELS.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-            </div>
-
-            {provider !== "gemini" && (
               <div className="field">
-                <label htmlFor={baseUrlId}>URL do Servidor</label>
+                <label htmlFor={modelId}>Modelo</label>
                 <input
-                  id={baseUrlId}
-                  type="url"
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="http://host.docker.internal:11434"
+                  id={modelId}
+                  type="text"
+                  list="gemini-models-list"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  required
                 />
+                <datalist id="gemini-models-list">
+                  {GEMINI_MODELS.map((m) => (
+                    <option key={m} value={m} />
+                  ))}
+                </datalist>
               </div>
-            )}
 
-            {provider !== "ollama" && (
-              <div className="field">
-                <label htmlFor={apiKeyId}>
-                  API Key{" "}
-                  {aiConfig?.hasApiKey
-                    ? `(ativa: ${aiConfig.apiKeyPreview} via ${aiConfig.apiKeySource})`
-                    : "(não configurada)"}
-                </label>
-                <div className="inline-edit-row">
+              {provider !== "gemini" && (
+                <div className="field">
+                  <label htmlFor={baseUrlId}>URL do Servidor</label>
                   <input
-                    id={apiKeyId}
-                    type={showKey ? "text" : "password"}
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder="Cole nova API key para atualizar..."
-                    autoComplete="off"
+                    id={baseUrlId}
+                    type="url"
+                    value={baseUrl}
+                    onChange={(e) => setBaseUrl(e.target.value)}
+                    placeholder="http://host.docker.internal:11434"
                   />
-                  <button
-                    type="button"
-                    className="secondary-button compact-button"
-                    aria-pressed={showKey}
-                    onClick={() => setShowKey((prev) => !prev)}
-                  >
-                    {showKey ? "Ocultar" : "Mostrar"}
-                  </button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
 
-          <div className="toolbar-actions">
-            <button type="submit" className="primary-button">
-              Salvar configuração local
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={testingAI}
-              onClick={() => void handleTestAI()}
-            >
-              {testingAI ? "Testando..." : "Testar conexão IA"}
-            </button>
-          </div>
-        </form>
+              {provider !== "ollama" && (
+                <div className="field">
+                  <label htmlFor={apiKeyId}>
+                    API Key{" "}
+                    {aiConfig?.hasApiKey
+                      ? `(ativa: ${aiConfig.apiKeyPreview} via ${aiConfig.apiKeySource})`
+                      : "(não configurada)"}
+                  </label>
+                  <div className="inline-edit-row">
+                    <input
+                      id={apiKeyId}
+                      type={showKey ? "text" : "password"}
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder="Cole nova API key para atualizar..."
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      className="secondary-button compact-button"
+                      aria-pressed={showKey}
+                      onClick={() => setShowKey((prev) => !prev)}
+                    >
+                      {showKey ? "Ocultar" : "Mostrar"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="toolbar-actions">
+              <button type="submit" className="primary-button" disabled={savingAI}>
+                <LoadingButtonContent
+                  loading={savingAI}
+                  loadingLabel="Salvando..."
+                  idleLabel="Salvar configuração local"
+                />
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={testingAI}
+                onClick={() => void handleTestAI()}
+              >
+                <LoadingButtonContent
+                  loading={testingAI}
+                  loadingLabel="Testando..."
+                  idleLabel="Testar conexão IA"
+                />
+              </button>
+            </div>
+          </form>
+        )}
 
         {aiFeedback && (
           <p className="status-inline" role="status" aria-live="polite">
@@ -329,7 +370,7 @@ export function SettingsPage() {
       <section className="card section-card">
         <h2>Privacidade Zero-Knowledge & Backup Portável (Railway ↔ Homelab)</h2>
         {loading && !status ? (
-          <p className="category">Consultando status do Edge Local...</p>
+          <SkeletonSummaryGrid count={4} label="Consultando status do Edge Local..." />
         ) : status ? (
           <div className="summary-grid">
             <article className="result-card card">
@@ -363,16 +404,34 @@ export function SettingsPage() {
         ) : null}
 
         <div className="toolbar-actions" style={{ marginBlockStart: "16px" }}>
-          <button type="button" className="secondary-button" onClick={() => void handleExportSnapshot()}>
-            Exportar Backup Cifrado (.json)
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={exportingBackup}
+            onClick={() => void handleExportSnapshot()}
+          >
+            <LoadingButtonContent
+              loading={exportingBackup}
+              loadingLabel="Exportando..."
+              idleLabel="Exportar Backup Cifrado (.json)"
+            />
           </button>
-          <label className="secondary-button" htmlFor={importBackupId} style={{ display: "inline-flex", alignItems: "center" }}>
-            Importar Backup Cifrado
+          <label
+            className={`secondary-button ${importingBackup ? "is-disabled-label" : ""}`.trim()}
+            htmlFor={importBackupId}
+            style={{ display: "inline-flex", alignItems: "center" }}
+          >
+            <LoadingButtonContent
+              loading={importingBackup}
+              loadingLabel="Restaurando..."
+              idleLabel="Importar Backup Cifrado"
+            />
             <input
               id={importBackupId}
               className="visually-hidden"
               type="file"
               accept="application/json,.json"
+              disabled={importingBackup}
               onChange={handleImportSnapshot}
             />
           </label>
@@ -400,7 +459,11 @@ export function SettingsPage() {
             onClick={handleRunRoundtripTest}
             disabled={testing}
           >
-            {testing ? "Testando..." : "Testar gravação cifrada"}
+            <LoadingButtonContent
+              loading={testing}
+              loadingLabel="Testando..."
+              idleLabel="Testar gravação cifrada"
+            />
           </button>
         </div>
 
@@ -436,7 +499,9 @@ export function SettingsPage() {
           </div>
         )}
 
-        {samples.length > 0 && (
+        {loading && samples.length === 0 ? (
+          <SkeletonAuditGrid count={2} />
+        ) : samples.length > 0 ? (
           <div className="stack-md">
             {samples.map((item) => (
               <div key={item.id} className="audit-grid">
@@ -451,7 +516,7 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </section>
     </div>
   );

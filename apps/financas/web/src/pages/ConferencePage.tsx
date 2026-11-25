@@ -21,6 +21,12 @@ import {
   type TransactionScope,
 } from "@financas/shared";
 import { CurrencyInput } from "../components/CurrencyInput";
+import {
+  LoadingButtonContent,
+  LoadingSpinner,
+  SkeletonCardList,
+  SkeletonSummaryGrid,
+} from "../components/Loading";
 import { DEFAULT_CATEGORIES } from "../lib/categories";
 import { formatBRL } from "../lib/format";
 import { readAndParseItauPdf } from "../lib/pdfReader";
@@ -59,10 +65,14 @@ export function ConferencePage({
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
   const [fileName, setFileName] = useState("Aguardando PDF");
   const [statusMessage, setStatusMessage] = useState("Selecione o PDF da fatura ou adicione gastos do mês.");
+  const [loadingMonth, setLoadingMonth] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
-  const [savingMonth, setSavingMonth] = useState(false);
+  const [savingAction, setSavingAction] = useState<"draft" | "closed" | null>(null);
   const [suggestingAI, setSuggestingAI] = useState(false);
+  const [addingCouplePlan, setAddingCouplePlan] = useState(false);
+  const [togglingPlanId, setTogglingPlanId] = useState<string | null>(null);
+  const savingMonth = savingAction !== null;
 
   // Manual entry quick form
   const [manualDesc, setManualDesc] = useState("");
@@ -86,10 +96,15 @@ export function ConferencePage({
   const notesInputId = useId();
   const newPlanId = useId();
 
-  const loadMonthData = useCallback(async (targetMonth: string) => {
+  const loadMonthData = useCallback(async (targetMonth: string, signal?: AbortSignal) => {
+    setLoadingMonth(true);
+    setClosing(null);
+    setTransactions([]);
+    setMissingFixedExpenses([]);
+    setFutureInstallments([]);
     try {
-      const res = await fetch(`/api/closings/${encodeURIComponent(targetMonth)}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/closings/${encodeURIComponent(targetMonth)}`, { signal });
+      if (!res.ok || signal?.aborted) return;
       const data = (await res.json()) as {
         closing: MonthlyClosing | null;
         transactions: Transaction[];
@@ -98,6 +113,7 @@ export function ConferencePage({
         preloadedFixedCount?: number;
         missingRecurringExpenses?: Transaction[];
       };
+      if (signal?.aborted) return;
       setClosing(data.closing);
       setTransactions(data.transactions || []);
       setMissingFixedExpenses(data.missingRecurringExpenses || []);
@@ -118,12 +134,18 @@ export function ConferencePage({
         setStatusMessage("Selecione o PDF da fatura ou adicione gastos do mês.");
       }
     } catch {
-      // Offline/test mode without Edge API
+      // Offline/test mode without Edge API or aborted on month switch
+    } finally {
+      if (!signal?.aborted) {
+        setLoadingMonth(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void loadMonthData(month);
+    const controller = new AbortController();
+    void loadMonthData(month, controller.signal);
+    return () => controller.abort();
   }, [month, loadMonthData]);
 
   async function applySavedRules(
@@ -392,7 +414,7 @@ export function ConferencePage({
   }
 
   async function persistMonth(status: "draft" | "closed") {
-    setSavingMonth(true);
+    setSavingAction(status);
     try {
       const res = await fetch(`/api/closings/${encodeURIComponent(month)}/close`, {
         method: "POST",
@@ -417,12 +439,13 @@ export function ConferencePage({
     } catch {
       setStatusMessage("Não foi possível salvar a competência no Edge Local.");
     } finally {
-      setSavingMonth(false);
+      setSavingAction(null);
     }
   }
 
   async function handleAddCouplePlan() {
-    if (!newPlanText.trim()) return;
+    if (!newPlanText.trim() || addingCouplePlan) return;
+    setAddingCouplePlan(true);
     try {
       const res = await fetch("/api/couple-plans", {
         method: "POST",
@@ -436,11 +459,15 @@ export function ConferencePage({
       }
     } catch {
       // Ignore offline error
+    } finally {
+      setAddingCouplePlan(false);
     }
   }
 
   async function handleTogglePlanDone(plan: CouplePlanNote) {
+    if (togglingPlanId) return;
     const nextStatus = plan.status === "done" ? "active" : "done";
+    setTogglingPlanId(plan.id);
     try {
       const res = await fetch(`/api/couple-plans/${encodeURIComponent(plan.id)}`, {
         method: "PUT",
@@ -454,6 +481,8 @@ export function ConferencePage({
       }
     } catch {
       // Ignore offline error
+    } finally {
+      setTogglingPlanId(null);
     }
   }
 
@@ -508,9 +537,13 @@ export function ConferencePage({
         <div>
           <div className="transaction-meta">
             <p className="eyebrow">Competência mensal • Casal & Individual</p>
-            <span className={`pill ${closing?.status === "closed" ? "pill-success" : "pill-accent"}`}>
-              {closing?.status === "closed" ? "Mês fechado" : "Em aberto"}
-            </span>
+            {loadingMonth ? (
+              <span className="pill">Carregando...</span>
+            ) : (
+              <span className={`pill ${closing?.status === "closed" ? "pill-success" : "pill-accent"}`}>
+                {closing?.status === "closed" ? "Mês fechado" : "Em aberto"}
+              </span>
+            )}
           </div>
           <h1 id="conteudo-principal" tabIndex={-1}>
             Conferência mensal
@@ -544,14 +577,19 @@ export function ConferencePage({
               <button
                 type="button"
                 className="secondary-button"
-                disabled={savingMonth}
+                disabled={savingMonth || loadingMonth}
                 onClick={() => void persistMonth("draft")}
               >
-                Salvar rascunho
+                <LoadingButtonContent
+                  loading={savingAction === "draft"}
+                  loadingLabel="Salvando rascunho..."
+                  idleLabel="Salvar rascunho"
+                />
               </button>
               <button
                 type="button"
                 className="primary-button"
+                disabled={savingMonth || loadingMonth}
                 onClick={() => dialogRef.current?.showModal()}
               >
                 Fechar mês (Check-in)
@@ -578,9 +616,12 @@ export function ConferencePage({
             </button>
           </div>
 
-          <label className="upload-box" htmlFor={fileInputId}>
+          <label
+            className={`upload-box ${isLoading ? "is-loading" : ""}`}
+            htmlFor={fileInputId}
+          >
             <span className="upload-icon" aria-hidden="true">
-              ＋
+              {isLoading ? <LoadingSpinner size="md" decorative /> : "＋"}
             </span>
             <span>
               <strong>{isLoading ? "Processando PDF..." : "Selecionar PDF"}</strong>
@@ -591,39 +632,47 @@ export function ConferencePage({
               className="visually-hidden"
               type="file"
               accept=".pdf,application/pdf"
+              disabled={isLoading}
               onChange={handleFileChange}
             />
           </label>
         </div>
       </section>
 
-      <section className="summary-grid" aria-label="Resumo da conferência">
-        <article className="result-card card">
-          <span className="label">Total do Casal</span>
-          <strong data-testid="couple-total">{formatBRL(settlement.totalCouple)}</strong>
-          <small>Soma de todas as contas compartilhadas</small>
-        </article>
+      {loadingMonth && transactions.length === 0 ? (
+        <SkeletonSummaryGrid
+          highlightIndex={1}
+          label={`Carregando competência ${month}...`}
+        />
+      ) : (
+        <section className="summary-grid" aria-label="Resumo da conferência">
+          <article className="result-card card">
+            <span className="label">Total do Casal</span>
+            <strong data-testid="couple-total">{formatBRL(settlement.totalCouple)}</strong>
+            <small>Soma de todas as contas compartilhadas</small>
+          </article>
 
-        <article className="result-card highlight card">
-          <span className="label">Acerto Líquido Final</span>
-          <strong data-testid="each-pays">{settlementText.headline}</strong>
-          <small>{settlementText.detail}</small>
-        </article>
+          <article className="result-card highlight card">
+            <span className="label">Acerto Líquido Final</span>
+            <strong data-testid="each-pays">{settlementText.headline}</strong>
+            <small>{settlementText.detail}</small>
+          </article>
 
-        <article className="result-card card">
-          <span className="label">Lançamentos no mês</span>
-          <strong data-testid="items-count">{transactions.length}</strong>
-          <small>
-            {fileName} {transactions.length > 0 ? `• ${unmatchedCount} nova(s)` : ""}
-          </small>
-        </article>
+          <article className="result-card card">
+            <span className="label">Lançamentos no mês</span>
+            <strong data-testid="items-count">{transactions.length}</strong>
+            <small>
+              {fileName} {transactions.length > 0 ? `• ${unmatchedCount} nova(s)` : ""}
+            </small>
+          </article>
 
-        <article className="result-card card">
-          <span className="label">Parcelas próximas faturas</span>
-          <strong data-testid="future-total">{formatBRL(futureNextMonthTotal)}</strong>
-          <small>{futureInstallments.length} parcelamento(s) detectado(s)</small>
-        </article>
-      </section>
+          <article className="result-card card">
+            <span className="label">Parcelas próximas faturas</span>
+            <strong data-testid="future-total">{formatBRL(futureNextMonthTotal)}</strong>
+            <small>{futureInstallments.length} parcelamento(s) detectado(s)</small>
+          </article>
+        </section>
+      )}
 
       <section className="card section-card compact-card">
         <h2>Adicionar conta da casa ou gasto manual (meu ou dela)</h2>
@@ -728,7 +777,11 @@ export function ConferencePage({
                 disabled={suggestingAI}
                 onClick={() => void handleSuggestLabelsWithAI()}
               >
-                {suggestingAI ? "Sugerindo..." : "Sugerir labels com IA"}
+                <LoadingButtonContent
+                  loading={suggestingAI}
+                  loadingLabel="Sugerindo..."
+                  idleLabel="Sugerir labels com IA"
+                />
               </button>
             )}
             <button
@@ -749,7 +802,7 @@ export function ConferencePage({
         </section>
       )}
 
-      {statusMessage && (
+      {!loadingMonth && statusMessage && (
         <section className="message card" role="status" aria-live="polite">
           {statusMessage}
         </section>
@@ -761,7 +814,12 @@ export function ConferencePage({
         ))}
       </datalist>
 
-      {filteredTransactions.length > 0 && (
+      {(loadingMonth || isLoading) && transactions.length === 0 ? (
+        <SkeletonCardList
+          count={3}
+          label={isLoading ? "Lendo PDF e aplicando labels salvos..." : undefined}
+        />
+      ) : filteredTransactions.length > 0 ? (
         <ul className="transactions-list" role="list">
           {filteredTransactions.map((tx) => (
             <li key={tx.id}>
@@ -884,11 +942,11 @@ export function ConferencePage({
                       disabled={savingRuleId === tx.id}
                       onClick={() => void handleRememberRule(tx)}
                     >
-                      {savingRuleId === tx.id
-                        ? "Salvando..."
-                        : tx.matchedRuleId
-                          ? "Atualizar regra"
-                          : "Lembrar regra"}
+                      <LoadingButtonContent
+                        loading={savingRuleId === tx.id}
+                        loadingLabel="Salvando..."
+                        idleLabel={tx.matchedRuleId ? "Atualizar regra" : "Lembrar regra"}
+                      />
                     </button>
 
                     <button
@@ -904,7 +962,7 @@ export function ConferencePage({
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
 
       {futureInstallments.length > 0 && (
         <section className="future-section card">
@@ -985,9 +1043,14 @@ export function ConferencePage({
                 <button
                   type="button"
                   className="secondary-button compact-button"
+                  disabled={addingCouplePlan}
                   onClick={() => void handleAddCouplePlan()}
                 >
-                  Adicionar plano
+                  <LoadingButtonContent
+                    loading={addingCouplePlan}
+                    loadingLabel="Adicionando..."
+                    idleLabel="Adicionar plano"
+                  />
                 </button>
               </div>
 
@@ -998,6 +1061,7 @@ export function ConferencePage({
                       <label className="plan-checkbox">
                         <input
                           type="checkbox"
+                          disabled={togglingPlanId === plan.id}
                           checked={plan.status === "done"}
                           onChange={() => void handleTogglePlanDone(plan)}
                         />
@@ -1029,7 +1093,11 @@ export function ConferencePage({
                 disabled={savingMonth}
                 onClick={() => void persistMonth("closed")}
               >
-                {savingMonth ? "Salvando..." : "Confirmar fechamento do mês"}
+                <LoadingButtonContent
+                  loading={savingAction === "closed"}
+                  loadingLabel="Fechando mês..."
+                  idleLabel="Confirmar fechamento do mês"
+                />
               </button>
               <button
                 type="button"

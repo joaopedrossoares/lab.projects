@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import type { LabelRule, TransactionScope } from "@financas/shared";
+import {
+  LoadingButtonContent,
+  LoadingSpinner,
+  SkeletonCardList,
+} from "../components/Loading";
 import { DEFAULT_CATEGORIES } from "../lib/categories";
 
 export function LabelsPage() {
@@ -15,6 +20,9 @@ export function LabelsPage() {
   const [defaultScope, setDefaultScope] = useState<TransactionScope>("couple");
   const [mySharePct, setMySharePct] = useState(50);
   const [saving, setSaving] = useState(false);
+  const [updatingRuleId, setUpdatingRuleId] = useState<string | null>(null);
+  const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const searchId = useId();
   const catListId = useId();
@@ -35,6 +43,7 @@ export function LabelsPage() {
       setStatusMessage("Não foi possível carregar as regras salvas.");
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
@@ -73,6 +82,7 @@ export function LabelsPage() {
   }
 
   async function handleUpdateRule(rule: LabelRule) {
+    setUpdatingRuleId(rule.id);
     try {
       const res = await fetch("/api/labels", {
         method: "PUT",
@@ -82,21 +92,30 @@ export function LabelsPage() {
       if (res.ok) {
         setStatusMessage(`Regra "${rule.friendlyName}" atualizada.`);
         await loadRules();
+      } else {
+        setStatusMessage("Falha ao atualizar regra.");
       }
     } catch {
       setStatusMessage("Falha ao atualizar regra.");
+    } finally {
+      setUpdatingRuleId(null);
     }
   }
 
   async function handleDeleteRule(id: string) {
+    setDeletingRuleId(id);
     try {
       const res = await fetch(`/api/labels/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (res.ok) {
         setRules((prev) => prev.filter((r) => r.id !== id));
         setStatusMessage("Regra removida.");
+      } else {
+        setStatusMessage("Falha ao remover regra.");
       }
     } catch {
       setStatusMessage("Falha ao remover regra.");
+    } finally {
+      setDeletingRuleId(null);
     }
   }
 
@@ -195,7 +214,11 @@ export function LabelsPage() {
           )}
 
           <button type="submit" className="primary-button" disabled={saving}>
-            {saving ? "Salvando..." : "Salvar regra"}
+            <LoadingButtonContent
+              loading={saving}
+              loadingLabel="Salvando..."
+              idleLabel="Salvar regra"
+            />
           </button>
         </form>
 
@@ -214,7 +237,10 @@ export function LabelsPage() {
 
       <section className="card section-card">
         <div className="section-header-row">
-          <h2>Regras memorizadas ({rules.length})</h2>
+          <div className="button-content">
+            <h2>Regras memorizadas ({rules.length})</h2>
+            {loading && hasLoaded && <LoadingSpinner size="sm" label="Atualizando regras" />}
+          </div>
           <search className="search-field">
             <label htmlFor={searchId}>Buscar label salvo</label>
             <input
@@ -230,8 +256,8 @@ export function LabelsPage() {
           </search>
         </div>
 
-        {loading ? (
-          <p className="category">Carregando regras...</p>
+        {loading && !hasLoaded ? (
+          <SkeletonCardList count={4} label="Carregando regras memorizadas..." />
         ) : filtered.length === 0 ? (
           <p className="category">Nenhuma regra cadastrada ainda.</p>
         ) : (
@@ -284,16 +310,26 @@ export function LabelsPage() {
                     <button
                       type="button"
                       className="secondary-button"
+                      disabled={updatingRuleId === rule.id || deletingRuleId === rule.id}
                       onClick={() => void handleUpdateRule(rule)}
                     >
-                      Atualizar
+                      <LoadingButtonContent
+                        loading={updatingRuleId === rule.id}
+                        loadingLabel="Atualizando..."
+                        idleLabel="Atualizar"
+                      />
                     </button>
                     <button
                       type="button"
                       className="danger-button"
+                      disabled={deletingRuleId === rule.id || updatingRuleId === rule.id}
                       onClick={() => void handleDeleteRule(rule.id)}
                     >
-                      Excluir
+                      <LoadingButtonContent
+                        loading={deletingRuleId === rule.id}
+                        loadingLabel="Excluindo..."
+                        idleLabel="Excluir"
+                      />
                     </button>
                   </div>
                 </article>

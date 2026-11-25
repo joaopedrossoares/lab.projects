@@ -6,6 +6,14 @@ import type {
   TransactionScope,
 } from "@financas/shared";
 import { CurrencyInput } from "../components/CurrencyInput";
+import {
+  LoadingButtonContent,
+  LoadingSpinner,
+  SkeletonCardList,
+  SkeletonFormGrid,
+  SkeletonListLines,
+  SkeletonSummaryGrid,
+} from "../components/Loading";
 import { formatBRL } from "../lib/format";
 
 interface SimulationOutput {
@@ -38,7 +46,17 @@ export function PlannerPage() {
   const [couplePlans, setCouplePlans] = useState<CouplePlanNote[]>([]);
   const [interestsText, setInterestsText] = useState("");
   const [indicators, setIndicators] = useState<SafetyIndicators | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+
+  // Mutation busy states
+  const [savingInterests, setSavingInterests] = useState(false);
+  const [addingCouplePlan, setAddingCouplePlan] = useState(false);
+  const [addingPurchase, setAddingPurchase] = useState(false);
+  const [simulatingId, setSimulatingId] = useState<string | null>(null);
+  const [updatingPurchaseId, setUpdatingPurchaseId] = useState<string | null>(null);
+  const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
 
   // New purchase form
   const [title, setTitle] = useState("");
@@ -64,6 +82,7 @@ export function PlannerPage() {
   const [chatting, setChatting] = useState(false);
 
   const loadAll = useCallback(async () => {
+    setLoading(true);
     try {
       const [purchasesRes, plansRes, safetyRes] = await Promise.all([
         fetch("/api/planner/purchases"),
@@ -89,6 +108,9 @@ export function PlannerPage() {
       }
     } catch {
       // Ignore offline test mode
+    } finally {
+      setLoading(false);
+      setHasLoaded(true);
     }
   }, []);
 
@@ -98,90 +120,141 @@ export function PlannerPage() {
 
   async function handleSaveInterests(event: FormEvent) {
     event.preventDefault();
-    const res = await fetch("/api/safety/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ interestsAndGoalsText: interestsText }),
-    });
-    if (res.ok) {
-      setStatusMessage("Perfil de interesses e objetivos salvo (cifrado).");
+    if (savingInterests) return;
+    setSavingInterests(true);
+    setStatusMessage("");
+    try {
+      const res = await fetch("/api/safety/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interestsAndGoalsText: interestsText }),
+      });
+      if (res.ok) {
+        setStatusMessage("Perfil de interesses e objetivos salvo (cifrado).");
+      } else {
+        setStatusMessage("Não foi possível salvar seu perfil de interesses.");
+      }
+    } catch {
+      setStatusMessage("Falha ao salvar perfil de interesses.");
+    } finally {
+      setSavingInterests(false);
     }
   }
 
   async function handleAddCouplePlan(event: FormEvent) {
     event.preventDefault();
-    if (!newCouplePlan.trim()) return;
-    const res = await fetch("/api/couple-plans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: newCouplePlan.trim() }),
-    });
-    if (res.ok) {
-      setNewCouplePlan("");
-      await loadAll();
+    if (!newCouplePlan.trim() || addingCouplePlan) return;
+    setAddingCouplePlan(true);
+    try {
+      const res = await fetch("/api/couple-plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: newCouplePlan.trim() }),
+      });
+      if (res.ok) {
+        setNewCouplePlan("");
+        await loadAll();
+      }
+    } catch {
+      setStatusMessage("Falha ao adicionar plano do casal.");
+    } finally {
+      setAddingCouplePlan(false);
     }
   }
 
   async function handleAddPurchase(event: FormEvent) {
     event.preventDefault();
-    if (!title.trim() || !Number.isFinite(price) || price <= 0) return;
+    if (!title.trim() || !Number.isFinite(price) || price <= 0 || addingPurchase) return;
 
-    const res = await fetch("/api/planner/purchases", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: title.trim(),
-        estimatedPrice: price,
-        defaultInstallments: installments,
-        scope,
-        urgency,
-        desireImpact,
-        notes: notes.trim(),
-      }),
-    });
+    setAddingPurchase(true);
+    setStatusMessage("");
+    try {
+      const res = await fetch("/api/planner/purchases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          estimatedPrice: price,
+          defaultInstallments: installments,
+          scope,
+          urgency,
+          desireImpact,
+          notes: notes.trim(),
+        }),
+      });
 
-    if (res.ok) {
-      setTitle("");
-      setPrice(0);
-      setInstallments(1);
-      setNotes("");
-      setStatusMessage("Compra adicionada ao backlog de planejamento.");
-      await loadAll();
+      if (res.ok) {
+        setTitle("");
+        setPrice(0);
+        setInstallments(1);
+        setNotes("");
+        setStatusMessage("Compra adicionada ao backlog de planejamento.");
+        await loadAll();
+      } else {
+        setStatusMessage("Não foi possível adicionar a compra.");
+      }
+    } catch {
+      setStatusMessage("Falha ao adicionar compra ao planejamento.");
+    } finally {
+      setAddingPurchase(false);
     }
   }
 
   async function handleSimulateItem(item: PlannedPurchase) {
+    setSimulatingId(item.id);
     setSelectedSimTitle(item.title);
-    const res = await fetch("/api/safety/simulate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: item.title,
-        price: item.estimatedPrice,
-        installments: item.defaultInstallments,
-        scope: item.scope,
-      }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { simulation: SimulationOutput };
-      setSimulation(data.simulation);
+    try {
+      const res = await fetch("/api/safety/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.title,
+          price: item.estimatedPrice,
+          installments: item.defaultInstallments,
+          scope: item.scope,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { simulation: SimulationOutput };
+        setSimulation(data.simulation);
+      } else {
+        setStatusMessage("Não foi possível simular esta compra.");
+      }
+    } catch {
+      setStatusMessage("Falha ao simular impacto da compra.");
+    } finally {
+      setSimulatingId(null);
     }
   }
 
   async function handleMarkStatus(item: PlannedPurchase, status: PlannedPurchase["status"]) {
-    const res = await fetch(`/api/planner/purchases/${encodeURIComponent(item.id)}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    if (res.ok) await loadAll();
+    setUpdatingPurchaseId(item.id);
+    try {
+      const res = await fetch(`/api/planner/purchases/${encodeURIComponent(item.id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) await loadAll();
+    } catch {
+      setStatusMessage("Falha ao atualizar status da compra.");
+    } finally {
+      setUpdatingPurchaseId(null);
+    }
   }
 
   async function handleDeletePurchase(id: string) {
-    const res = await fetch(`/api/planner/purchases/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    if (res.ok) await loadAll();
+    setDeletingPurchaseId(id);
+    try {
+      const res = await fetch(`/api/planner/purchases/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) await loadAll();
+    } catch {
+      setStatusMessage("Falha ao remover compra.");
+    } finally {
+      setDeletingPurchaseId(null);
+    }
   }
 
   async function handlePrioritizeWithAI() {
@@ -247,6 +320,8 @@ export function PlannerPage() {
     }
   }
 
+  const initialLoading = loading && !hasLoaded;
+
   return (
     <div className="stack-lg">
       <section className="card section-card">
@@ -264,14 +339,23 @@ export function PlannerPage() {
           <button
             type="button"
             className="primary-button"
-            disabled={prioritizing}
+            disabled={prioritizing || initialLoading}
             onClick={() => void handlePrioritizeWithAI()}
           >
-            {prioritizing ? "Analisando com IA..." : "Priorizar lista com IA"}
+            <LoadingButtonContent
+              loading={prioritizing}
+              loadingLabel="Analisando com IA..."
+              idleLabel="Priorizar lista com IA"
+            />
           </button>
         </div>
 
-        {indicators && (
+        {initialLoading ? (
+          <SkeletonSummaryGrid
+            highlightIndex={1}
+            label="Carregando indicadores e backlog de compras..."
+          />
+        ) : indicators ? (
           <div className="summary-grid">
             <article className="result-card card">
               <span className="label">Runway atual</span>
@@ -294,7 +378,7 @@ export function PlannerPage() {
               <small>Sempre respeitados nas decisões</small>
             </article>
           </div>
-        )}
+        ) : null}
 
         {aiSummary && (
           <div className="audit-banner" role="status" aria-live="polite">
@@ -312,23 +396,31 @@ export function PlannerPage() {
       <div className="two-col-grid">
         <section className="card section-card">
           <h2>Meus interesses e prioridades pessoais</h2>
-          <form className="stack-md" onSubmit={handleSaveInterests}>
-            <div className="field">
-              <label htmlFor="interests-text">
-                O que importa para você agora? (hobbies, setup, qualidade de vida, objetivos)
-              </label>
-              <textarea
-                id="interests-text"
-                rows={4}
-                value={interestsText}
-                onChange={(e) => setInterestsText(e.target.value)}
-                placeholder="Ex.: Melhorar ergonomia do home office, praticar música, montar meu servidor local (homelab), evitar dívidas longas..."
-              />
-            </div>
-            <button type="submit" className="secondary-button">
-              Salvar perfil de interesses
-            </button>
-          </form>
+          {initialLoading ? (
+            <SkeletonFormGrid fields={1} tallField />
+          ) : (
+            <form className="stack-md" onSubmit={handleSaveInterests}>
+              <div className="field">
+                <label htmlFor="interests-text">
+                  O que importa para você agora? (hobbies, setup, qualidade de vida, objetivos)
+                </label>
+                <textarea
+                  id="interests-text"
+                  rows={4}
+                  value={interestsText}
+                  onChange={(e) => setInterestsText(e.target.value)}
+                  placeholder="Ex.: Melhorar ergonomia do home office, praticar música, montar meu servidor local (homelab), evitar dívidas longas..."
+                />
+              </div>
+              <button type="submit" className="secondary-button" disabled={savingInterests}>
+                <LoadingButtonContent
+                  loading={savingInterests}
+                  loadingLabel="Salvando perfil..."
+                  idleLabel="Salvar perfil de interesses"
+                />
+              </button>
+            </form>
+          )}
         </section>
 
         <section className="card section-card">
@@ -344,12 +436,18 @@ export function PlannerPage() {
                 placeholder="Ex.: Viagem em outubro, trocar sofá..."
               />
             </div>
-            <button type="submit" className="secondary-button">
-              Adicionar
+            <button type="submit" className="secondary-button" disabled={addingCouplePlan}>
+              <LoadingButtonContent
+                loading={addingCouplePlan}
+                loadingLabel="Adicionando..."
+                idleLabel="Adicionar"
+              />
             </button>
           </form>
 
-          {couplePlans.length > 0 ? (
+          {initialLoading ? (
+            <SkeletonListLines count={2} />
+          ) : couplePlans.length > 0 ? (
             <ul className="plan-list" role="list">
               {couplePlans
                 .filter((p) => p.status === "active")
@@ -444,8 +542,12 @@ export function PlannerPage() {
               placeholder="Motivo ou observação..."
             />
           </div>
-          <button type="submit" className="primary-button">
-            Adicionar à lista
+          <button type="submit" className="primary-button" disabled={addingPurchase}>
+            <LoadingButtonContent
+              loading={addingPurchase}
+              loadingLabel="Adicionando..."
+              idleLabel="Adicionar à lista"
+            />
           </button>
         </form>
       </section>
@@ -481,8 +583,13 @@ export function PlannerPage() {
       )}
 
       <section className="card section-card">
-        <h2>Backlog de compras ({purchases.length})</h2>
-        {purchases.length === 0 ? (
+        <div className="button-content">
+          <h2>Backlog de compras ({purchases.length})</h2>
+          {loading && hasLoaded && <LoadingSpinner size="sm" label="Atualizando backlog" />}
+        </div>
+        {initialLoading ? (
+          <SkeletonCardList count={3} />
+        ) : purchases.length === 0 ? (
           <p className="category">Cadastre suas próximas compras acima para simular e priorizar.</p>
         ) : (
           <ul className="transactions-list" role="list">
@@ -530,25 +637,40 @@ export function PlannerPage() {
                       <button
                         type="button"
                         className="secondary-button compact-button"
+                        disabled={simulatingId === item.id}
                         onClick={() => void handleSimulateItem(item)}
                       >
-                        Simular impacto
+                        <LoadingButtonContent
+                          loading={simulatingId === item.id}
+                          loadingLabel="Simulando..."
+                          idleLabel="Simular impacto"
+                        />
                       </button>
                       {item.status !== "bought" && (
                         <button
                           type="button"
                           className="secondary-button compact-button"
+                          disabled={updatingPurchaseId === item.id || deletingPurchaseId === item.id}
                           onClick={() => void handleMarkStatus(item, "bought")}
                         >
-                          Marcar comprado
+                          <LoadingButtonContent
+                            loading={updatingPurchaseId === item.id}
+                            loadingLabel="Atualizando..."
+                            idleLabel="Marcar comprado"
+                          />
                         </button>
                       )}
                       <button
                         type="button"
                         className="danger-button compact-button"
+                        disabled={deletingPurchaseId === item.id || updatingPurchaseId === item.id}
                         onClick={() => void handleDeletePurchase(item.id)}
                       >
-                        Remover
+                        <LoadingButtonContent
+                          loading={deletingPurchaseId === item.id}
+                          loadingLabel="Removendo..."
+                          idleLabel="Remover"
+                        />
                       </button>
                     </div>
                   </div>
@@ -580,6 +702,15 @@ export function PlannerPage() {
               </div>
             ))
           )}
+          {chatting && (
+            <div className="chat-bubble chat-assistant">
+              <strong>Assistente IA</strong>
+              <div className="loading-indicator-row">
+                <LoadingSpinner size="sm" label="Assistente IA formulando resposta" />
+                <span>Analisando seus números e planos...</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="inline-edit-row">
@@ -598,7 +729,11 @@ export function PlannerPage() {
             disabled={chatting}
             onClick={() => void sendChatMessage()}
           >
-            {chatting ? "Pensando..." : "Enviar"}
+            <LoadingButtonContent
+              loading={chatting}
+              loadingLabel="Pensando..."
+              idleLabel="Enviar"
+            />
           </button>
         </div>
       </section>

@@ -833,11 +833,233 @@ h1 {
   }
 }
 
+.secondary-button:disabled,
+.danger-button:disabled,
+.pill-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.upload-box.is-loading {
+  opacity: 0.82;
+  cursor: wait;
+}
+
+.button-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.loading-indicator-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-block-start: 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.skeleton-region {
+  contain: layout style paint;
+}
+
+.skeleton-card {
+  pointer-events: none;
+}
+
+.skeleton-mt-sm {
+  margin-block-start: 10px;
+}
+
+.skeleton-block {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 202, 194, 0.42) 0%,
+    rgba(255, 237, 235, 0.92) 50%,
+    rgba(255, 202, 194, 0.42) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.result-card.highlight .skeleton-block {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(255, 255, 255, 0.72) 50%,
+    rgba(255, 255, 255, 0.32) 100%
+  );
+  background-size: 200% 100%;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Native indeterminate <progress> styled as accessible spinner */
+@property --arc-start {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --arc-end {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 158deg;
+}
+
+@property --progress-dash-animation {
+  syntax: "*";
+  inherits: false;
+  initial-value: , progress-dash 2.4s ease-in-out infinite;
+}
+
+progress.loading-spinner:indeterminate::-webkit-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.loading-spinner:indeterminate::-webkit-progress-value {
+  display: none;
+  background: none;
+}
+
+progress.loading-spinner:indeterminate::-moz-progress-bar {
+  display: none;
+  background: none;
+}
+
+progress.loading-spinner:indeterminate::slider-fill {
+  display: none;
+  background: none;
+}
+
+progress.loading-spinner:indeterminate {
+  --_from: calc(90deg + var(--arc-start, 0deg));
+  --_to: calc(90deg + var(--arc-end, 158deg));
+  --size: 18px;
+  --thickness: 2.5px;
+  --spinner-color: currentColor;
+  --track-color: rgba(63, 37, 33, 0.2);
+  --spinner-duration: 1.1s;
+  --_used-spinner-duration: var(--spinner-duration);
+
+  display: inline-block;
+  flex: 0 0 auto;
+  position: relative;
+  inline-size: var(--size);
+  block-size: var(--size);
+  border-radius: 50%;
+  appearance: none;
+  border: 0;
+  background: conic-gradient(
+      from var(--_from),
+      var(--spinner-color) calc(var(--_to) - var(--_from)),
+      transparent 0
+    )
+    var(--track-color);
+
+  @supports (background-clip: border-area) {
+    background-clip: border-area;
+    border: var(--thickness) solid transparent;
+    background-origin: border-box;
+  }
+
+  @supports not (background-clip: border-area) {
+    --clip-boundary: calc(100% - var(--thickness));
+    mask-image: radial-gradient(
+      farthest-side,
+      transparent var(--clip-boundary),
+      black var(--clip-boundary)
+    );
+    border: 0;
+  }
+
+  @media (forced-colors: active) {
+    forced-color-adjust: none;
+    --spinner-color: CanvasText;
+    --track-color: Canvas;
+  }
+
+  animation:
+    progress-spin var(--_used-spinner-duration) linear infinite
+    var(--progress-dash-animation, );
+}
+
+progress.loading-spinner-sm:indeterminate {
+  --size: 16px;
+  --thickness: 2px;
+}
+
+progress.loading-spinner-md:indeterminate {
+  --size: 24px;
+  --thickness: 3px;
+}
+
+.primary-button progress.loading-spinner:indeterminate {
+  --spinner-color: var(--color5);
+  --track-color: rgba(255, 255, 255, 0.3);
+}
+
+.loading-indicator-row progress.loading-spinner:indeterminate {
+  --spinner-color: var(--accent-strong);
+  --track-color: var(--color3);
+}
+
+@keyframes progress-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@keyframes progress-dash {
+  from {
+    --arc-start: 0deg;
+    --arc-end: 20deg;
+  }
+  50% {
+    --arc-start: 100deg;
+    --arc-end: 340deg;
+  }
+  to {
+    --arc-start: 360deg;
+    --arc-end: 380deg;
+  }
+}
+
+.is-disabled-label {
+  opacity: 0.6;
+  cursor: wait;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  *,
+  *:not(progress.loading-spinner),
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+
+  .skeleton-block {
+    animation: none !important;
+    background: var(--color3);
+  }
+
+  progress.loading-spinner:indeterminate {
+    --_used-spinner-duration: 6s;
+    --progress-dash-animation: ;
+    --arc-end: 158deg;
   }
 }

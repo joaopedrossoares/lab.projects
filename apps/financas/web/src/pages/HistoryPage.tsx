@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CouplePlanNote, MonthlyClosing } from "@financas/shared";
+import { SkeletonCardList, SkeletonSummaryGrid } from "../components/Loading";
 import { formatBRL } from "../lib/format";
 
 interface HistoryPageProps {
@@ -57,31 +58,38 @@ export function HistoryPage({ onOpenMonth }: HistoryPageProps) {
           planos ativos do casal.
         </p>
 
-        <div className="summary-grid">
-          <article className="result-card card">
-            <span className="label">Meses registrados</span>
-            <strong>{closings.length}</strong>
-            <small>Snapshots salvos com Zero-Knowledge</small>
-          </article>
+        {loading ? (
+          <SkeletonSummaryGrid
+            highlightIndex={1}
+            label="Carregando histórico de fechamentos..."
+          />
+        ) : (
+          <div className="summary-grid">
+            <article className="result-card card">
+              <span className="label">Meses registrados</span>
+              <strong>{closings.length}</strong>
+              <small>Snapshots salvos com Zero-Knowledge</small>
+            </article>
 
-          <article className="result-card highlight card">
-            <span className="label">Guardado juntos (histórico)</span>
-            <strong>{formatBRL(totalCoupleSavedAllTime)}</strong>
-            <small>Soma dos check-ins mensais</small>
-          </article>
+            <article className="result-card highlight card">
+              <span className="label">Guardado juntos (histórico)</span>
+              <strong>{formatBRL(totalCoupleSavedAllTime)}</strong>
+              <small>Soma dos check-ins mensais</small>
+            </article>
 
-          <article className="result-card card">
-            <span className="label">Planos ativos do casal</span>
-            <strong>{plans.filter((p) => p.status === "active").length}</strong>
-            <small>Considerados pelo assistente de planejamento</small>
-          </article>
+            <article className="result-card card">
+              <span className="label">Planos ativos do casal</span>
+              <strong>{plans.filter((p) => p.status === "active").length}</strong>
+              <small>Considerados pelo assistente de planejamento</small>
+            </article>
 
-          <article className="result-card card">
-            <span className="label">Último fechamento</span>
-            <strong>{closings[0]?.month ?? "—"}</strong>
-            <small>{closings[0]?.status === "closed" ? "Fechado" : "Rascunho"}</small>
-          </article>
-        </div>
+            <article className="result-card card">
+              <span className="label">Último fechamento</span>
+              <strong>{closings[0]?.month ?? "—"}</strong>
+              <small>{closings[0]?.status === "closed" ? "Fechado" : "Rascunho"}</small>
+            </article>
+          </div>
+        )}
       </section>
 
       {plans.length > 0 && (
@@ -103,7 +111,7 @@ export function HistoryPage({ onOpenMonth }: HistoryPageProps) {
       <section className="card section-card">
         <h2>Competências mensais</h2>
         {loading ? (
-          <p className="category">Carregando histórico...</p>
+          <SkeletonCardList count={3} />
         ) : closings.length === 0 ? (
           <p className="category">
             Nenhum mês fechado ainda. Faça sua primeira conferência e clique em &ldquo;Fechar mês
